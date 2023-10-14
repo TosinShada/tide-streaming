@@ -1,6 +1,15 @@
 import { useEffect, useState } from 'react'
-import * as tokenContract from '@tide/mock-token'
-import { getStreamsByUser, Stream } from '@tide/stream-contract'
+import {
+  Contract as tokenContract,
+  networks as tokenNetwork,
+  Address
+} from 'mock-client'
+import {
+  Contract as streamContract,
+  networks as streamNetwork,
+  Stream
+} from 'streamdapp-client'
+import freighter from '@stellar/freighter-api'
 import { useAccount } from './useAccount'
 
 const defaultState = [] as Stream[];
@@ -15,14 +24,27 @@ export function useGetStream() {
   const [userStreams, setUserStreams] = useState<Stream[]>(defaultState)
   const account = useAccount()
 
+  const tokenClient = new tokenContract({
+    contractId: tokenNetwork.futurenet.contractId,
+    networkPassphrase: tokenNetwork.futurenet.networkPassphrase,
+    rpcUrl: 'https://rpc-futurenet.stellar.org:443',
+    wallet: freighter,
+  })
+  const streamClient = new streamContract({
+    contractId: streamNetwork.futurenet.contractId,
+    networkPassphrase: streamNetwork.futurenet.networkPassphrase,
+    rpcUrl: 'https://rpc-futurenet.stellar.org:443',
+    wallet: freighter,
+  })
+
   useEffect(() => {
     Promise.all([
-      tokenContract.balance({ id: tokenContract.CONTRACT_ID }),
-      tokenContract.decimals(),
-      tokenContract.name(),
-      tokenContract.symbol(),
+      tokenClient.balance({ id: Address.fromString(tokenNetwork.futurenet.contractId) }),
+      tokenClient.decimals(),
+      tokenClient.name(),
+      tokenClient.symbol(),
 
-      getStreamsByUser({ caller: account?.address || 'GDZDBDNC2HX5FTQQJE64LJBEI4PO4BXQX25ASGUOCK4H3VBW6GCR45RR' }),
+      streamClient.getStreamsByUser({ caller: Address.fromString(account?.address || 'GDZDBDNC2HX5FTQQJE64LJBEI4PO4BXQX25ASGUOCK4H3VBW6GCR45RR') }),
     ]).then(fetched => {
       setToken({
         balance: fetched[0],

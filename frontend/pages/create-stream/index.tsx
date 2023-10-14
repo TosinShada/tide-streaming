@@ -2,9 +2,6 @@ import { Metadata, NextPage } from 'next'
 
 import { Card } from '@/components/ui/card'
 import { CreateStreamForm } from '@/components/create/form'
-import { useSubscription } from '@/hooks'
-import * as streamdappContract from '@tide/stream-contract'
-import { useMemo } from 'react'
 import * as SorobanClient from 'soroban-client'
 import { MintToken } from '@/components/create/mint'
 let xdr = SorobanClient.xdr
@@ -15,17 +12,6 @@ export const metadata: Metadata = {
 }
 
 const Dashboard: NextPage = () => {
-  useSubscription(
-    streamdappContract,
-    'create_stream',
-    useMemo(
-      () => event => {
-        let response = xdr.ScVal.fromXDR(event.value.xdr, 'base64')
-        console.log('event response', response)
-      },
-      []
-    )
-  )
 
   return (
     <div className="mx-auto max-w-7xl hidden flex-col md:flex">

@@ -40,7 +40,12 @@ import { DateRange } from 'react-day-picker'
 import { useState } from 'react'
 import { useAccount } from '@/hooks'
 import moment from 'moment'
-import { createStream } from '@tide/stream-contract'
+import {
+  Contract as streamContract,
+  networks as streamNetwork,
+  Address
+} from 'streamdapp-client'
+import freighter from '@stellar/freighter-api'
 
 const tokens = [
   {
@@ -89,6 +94,13 @@ export function CreateStreamForm() {
   const account = useAccount()
   const { toast } = useToast()
 
+  const streamClient = new streamContract({
+    contractId: streamNetwork.futurenet.contractId,
+    networkPassphrase: streamNetwork.futurenet.networkPassphrase,
+    rpcUrl: 'https://rpc-futurenet.stellar.org:443',
+    wallet: freighter,
+  })
+
   async function onSubmit(data: AccountFormValues) {
     setIsLoading(true)
 
@@ -118,17 +130,17 @@ export function CreateStreamForm() {
     const amount = flowRate * BigInt(timeRange)
 
     const createStreamRequest = {
-      sender: account.address,
-      recipient: data.recipient,
+      sender: Address.fromString(account.address),
+      recipient: Address.fromString(data.recipient),
       amount: amount,
-      token_address: data.tokenAddress,
+      token_address: Address.fromString(data.tokenAddress),
       start_time: BigInt(from.unix()),
       stop_time: BigInt(to.unix()),
     }
 
     console.log('createStreamRequest', createStreamRequest)
 
-    await createStream(createStreamRequest, {
+    await streamClient.createStream(createStreamRequest, {
       fee: 1000,
       secondsToWait: 20,
       responseType: 'full',
