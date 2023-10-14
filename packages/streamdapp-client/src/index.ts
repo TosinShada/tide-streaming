@@ -1,13 +1,11 @@
 import * as SorobanClient from 'soroban-client';
-import { xdr } from 'soroban-client';
+import { ContractSpec, Address } from 'soroban-client';
 import { Buffer } from "buffer";
-import { scValStrToJs, scValToJs, addressToScVal, u128ToScVal, i128ToScVal, strToScVal } from './convert.js';
 import { invoke } from './invoke.js';
-import type { ResponseTypes, Wallet } from './method-options.js'
+import type { ResponseTypes, Wallet, ClassOptions } from './method-options.js'
 
-export * from './constants.js'
-export * from './server.js'
 export * from './invoke.js'
+export * from './method-options.js'
 
 export type u32 = number;
 export type i32 = number;
@@ -17,24 +15,24 @@ export type u128 = bigint;
 export type i128 = bigint;
 export type u256 = bigint;
 export type i256 = bigint;
-export type Address = string;
 export type Option<T> = T | undefined;
 export type Typepoint = bigint;
 export type Duration = bigint;
+export {Address};
 
 /// Error interface containing the error message
 export interface Error_ { message: string };
 
-export interface Result<T, E = Error_> {
+export interface Result<T, E extends Error_> {
     unwrap(): T,
     unwrapErr(): E,
     isOk(): boolean,
     isErr(): boolean,
 };
 
-export class Ok<T> implements Result<T> {
+export class Ok<T, E extends Error_ = Error_> implements Result<T, E> {
     constructor(readonly value: T) { }
-    unwrapErr(): Error_ {
+    unwrapErr(): E {
         throw new Error('No error');
     }
     unwrap(): T {
@@ -50,9 +48,9 @@ export class Ok<T> implements Result<T> {
     }
 }
 
-export class Err<T> implements Result<T> {
-    constructor(readonly error: Error_) { }
-    unwrapErr(): Error_ {
+export class Err<E extends Error_ = Error_> implements Result<any, E> {
+    constructor(readonly error: E) { }
+    unwrapErr(): E {
         return this.error;
     }
     unwrap(): never {
@@ -73,23 +71,30 @@ if (typeof window !== 'undefined') {
     window.Buffer = window.Buffer || Buffer;
 }
 
-const regex = /ContractError\((\d+)\)/;
+const regex = /Error\(Contract, #(\d+)\)/;
 
-function getError(err: string): Err<Error_> | undefined {
-    const match = err.match(regex);
+function parseError(message: string): Err | undefined {
+    const match = message.match(regex);
     if (!match) {
         return undefined;
     }
-    if (Errors == undefined) {
+    if (Errors === undefined) {
         return undefined;
     }
-    // @ts-ignore
     let i = parseInt(match[1], 10);
-    if (i < Errors.length) {
-        return new Err(Errors[i]!);
+    let err = Errors[i];
+    if (err) {
+        return new Err(err);
     }
     return undefined;
 }
+
+export const networks = {
+    futurenet: {
+        networkPassphrase: "Test SDF Future Network ; October 2022",
+        contractId: "CDSQFWPHBASD2BBQTQJS4KIMBMFTR63YEPIBIFSACVVNIMFI3IQT36O4",
+    }
+} as const
 
 export interface Stream {
   deposit: i128;
@@ -105,80 +110,10 @@ export interface Stream {
   token_symbol: string;
 }
 
-function StreamToXdr(stream?: Stream): xdr.ScVal {
-    if (!stream) {
-        return xdr.ScVal.scvVoid();
-    }
-    let arr = [
-        new xdr.ScMapEntry({key: ((i)=>xdr.ScVal.scvSymbol(i))("deposit"), val: ((i)=>i128ToScVal(i))(stream["deposit"])}),
-        new xdr.ScMapEntry({key: ((i)=>xdr.ScVal.scvSymbol(i))("id"), val: ((i)=>xdr.ScVal.scvU32(i))(stream["id"])}),
-        new xdr.ScMapEntry({key: ((i)=>xdr.ScVal.scvSymbol(i))("rate_per_second"), val: ((i)=>xdr.ScVal.scvU64(xdr.Uint64.fromString(i.toString())))(stream["rate_per_second"])}),
-        new xdr.ScMapEntry({key: ((i)=>xdr.ScVal.scvSymbol(i))("recipient"), val: ((i)=>addressToScVal(i))(stream["recipient"])}),
-        new xdr.ScMapEntry({key: ((i)=>xdr.ScVal.scvSymbol(i))("remaining_balance"), val: ((i)=>i128ToScVal(i))(stream["remaining_balance"])}),
-        new xdr.ScMapEntry({key: ((i)=>xdr.ScVal.scvSymbol(i))("sender"), val: ((i)=>addressToScVal(i))(stream["sender"])}),
-        new xdr.ScMapEntry({key: ((i)=>xdr.ScVal.scvSymbol(i))("start_time"), val: ((i)=>xdr.ScVal.scvU64(xdr.Uint64.fromString(i.toString())))(stream["start_time"])}),
-        new xdr.ScMapEntry({key: ((i)=>xdr.ScVal.scvSymbol(i))("stop_time"), val: ((i)=>xdr.ScVal.scvU64(xdr.Uint64.fromString(i.toString())))(stream["stop_time"])}),
-        new xdr.ScMapEntry({key: ((i)=>xdr.ScVal.scvSymbol(i))("token_address"), val: ((i)=>addressToScVal(i))(stream["token_address"])}),
-        new xdr.ScMapEntry({key: ((i)=>xdr.ScVal.scvSymbol(i))("token_decimals"), val: ((i)=>xdr.ScVal.scvU32(i))(stream["token_decimals"])}),
-        new xdr.ScMapEntry({key: ((i)=>xdr.ScVal.scvSymbol(i))("token_symbol"), val: ((i)=>xdr.ScVal.scvString(i))(stream["token_symbol"])})
-        ];
-    return xdr.ScVal.scvMap(arr);
-}
-
-
-function StreamFromXdr(base64Xdr: string): Stream {
-    let scVal = strToScVal(base64Xdr);
-    let obj: [string, any][] = scVal.map()!.map(e => [e.key().str() as string, e.val()]);
-    let map = new Map<string, any>(obj);
-    if (!obj) {
-        throw new Error('Invalid XDR');
-    }
-    return {
-        deposit: scValToJs(map.get("deposit")) as unknown as i128,
-        id: scValToJs(map.get("id")) as unknown as u32,
-        rate_per_second: scValToJs(map.get("rate_per_second")) as unknown as u64,
-        recipient: scValToJs(map.get("recipient")) as unknown as Address,
-        remaining_balance: scValToJs(map.get("remaining_balance")) as unknown as i128,
-        sender: scValToJs(map.get("sender")) as unknown as Address,
-        start_time: scValToJs(map.get("start_time")) as unknown as u64,
-        stop_time: scValToJs(map.get("stop_time")) as unknown as u64,
-        token_address: scValToJs(map.get("token_address")) as unknown as Address,
-        token_decimals: scValToJs(map.get("token_decimals")) as unknown as u32,
-        token_symbol: scValToJs(map.get("token_symbol")) as unknown as string
-    };
-}
-
 export interface LocalBalance {
   recipient_balance: i128;
   sender_balance: i128;
   withdrawal_amount: i128;
-}
-
-function LocalBalanceToXdr(localBalance?: LocalBalance): xdr.ScVal {
-    if (!localBalance) {
-        return xdr.ScVal.scvVoid();
-    }
-    let arr = [
-        new xdr.ScMapEntry({key: ((i)=>xdr.ScVal.scvSymbol(i))("recipient_balance"), val: ((i)=>i128ToScVal(i))(localBalance["recipient_balance"])}),
-        new xdr.ScMapEntry({key: ((i)=>xdr.ScVal.scvSymbol(i))("sender_balance"), val: ((i)=>i128ToScVal(i))(localBalance["sender_balance"])}),
-        new xdr.ScMapEntry({key: ((i)=>xdr.ScVal.scvSymbol(i))("withdrawal_amount"), val: ((i)=>i128ToScVal(i))(localBalance["withdrawal_amount"])})
-        ];
-    return xdr.ScVal.scvMap(arr);
-}
-
-
-function LocalBalanceFromXdr(base64Xdr: string): LocalBalance {
-    let scVal = strToScVal(base64Xdr);
-    let obj: [string, any][] = scVal.map()!.map(e => [e.key().str() as string, e.val()]);
-    let map = new Map<string, any>(obj);
-    if (!obj) {
-        throw new Error('Invalid XDR');
-    }
-    return {
-        recipient_balance: scValToJs(map.get("recipient_balance")) as unknown as i128,
-        sender_balance: scValToJs(map.get("sender_balance")) as unknown as i128,
-        withdrawal_amount: scValToJs(map.get("withdrawal_amount")) as unknown as i128
-    };
 }
 
 export interface CreateStream {
@@ -186,351 +121,249 @@ export interface CreateStream {
   rate_per_second: u64;
 }
 
-function CreateStreamToXdr(createStream?: CreateStream): xdr.ScVal {
-    if (!createStream) {
-        return xdr.ScVal.scvVoid();
+export type DataKey = {tag: "Token", values: void} | {tag: "NextStreamId", values: void} | {tag: "Streams", values: readonly [u32]} | {tag: "UserStreams", values: readonly [Address]};
+
+const Errors = {
+
+}
+
+export class Contract {
+            spec: ContractSpec;
+    constructor(public readonly options: ClassOptions) {
+        this.spec = new ContractSpec([
+            "AAAAAQAAAAAAAAAAAAAABlN0cmVhbQAAAAAACwAAAAAAAAAHZGVwb3NpdAAAAAALAAAAAAAAAAJpZAAAAAAABAAAAAAAAAAPcmF0ZV9wZXJfc2Vjb25kAAAAAAYAAAAAAAAACXJlY2lwaWVudAAAAAAAABMAAAAAAAAAEXJlbWFpbmluZ19iYWxhbmNlAAAAAAAACwAAAAAAAAAGc2VuZGVyAAAAAAATAAAAAAAAAApzdGFydF90aW1lAAAAAAAGAAAAAAAAAAlzdG9wX3RpbWUAAAAAAAAGAAAAAAAAAA10b2tlbl9hZGRyZXNzAAAAAAAAEwAAAAAAAAAOdG9rZW5fZGVjaW1hbHMAAAAAAAQAAAAAAAAADHRva2VuX3N5bWJvbAAAABA=",
+        "AAAAAQAAAAAAAAAAAAAADExvY2FsQmFsYW5jZQAAAAMAAAAAAAAAEXJlY2lwaWVudF9iYWxhbmNlAAAAAAAACwAAAAAAAAAOc2VuZGVyX2JhbGFuY2UAAAAAAAsAAAAAAAAAEXdpdGhkcmF3YWxfYW1vdW50AAAAAAAACw==",
+        "AAAAAQAAAAAAAAAAAAAADENyZWF0ZVN0cmVhbQAAAAIAAAAAAAAACGR1cmF0aW9uAAAABgAAAAAAAAAPcmF0ZV9wZXJfc2Vjb25kAAAAAAY=",
+        "AAAAAgAAAAAAAAAAAAAAB0RhdGFLZXkAAAAABAAAAAAAAAAAAAAABVRva2VuAAAAAAAAAAAAAAAAAAAMTmV4dFN0cmVhbUlkAAAAAQAAAAAAAAAHU3RyZWFtcwAAAAABAAAABAAAAAEAAAAAAAAAC1VzZXJTdHJlYW1zAAAAAAEAAAAT",
+        "AAAAAAAAAAAAAAAKaW5pdGlhbGl6ZQAAAAAAAgAAAAAAAAAFdG9rZW4AAAAAAAATAAAAAAAAAAhzdGFydF9pZAAAAAQAAAAA",
+        "AAAAAAAAAAAAAAAKZ2V0X3N0cmVhbQAAAAAAAQAAAAAAAAAJc3RyZWFtX2lkAAAAAAAABAAAAAEAAAfQAAAABlN0cmVhbQAA",
+        "AAAAAAAAAAAAAAATZ2V0X3N0cmVhbXNfYnlfdXNlcgAAAAABAAAAAAAAAAZjYWxsZXIAAAAAABMAAAABAAAD6gAAB9AAAAAGU3RyZWFtAAA=",
+        "AAAAAAAAAPdSZXR1cm5zIGVpdGhlciB0aGUgZGVsdGEgaW4gc2Vjb25kcyBiZXR3ZWVuIGBsZWRnZXIudGltZXN0YW1wYCBhbmQgYHN0YXJ0VGltZWAgb3IgYmV0d2VlbiBgc3RvcFRpbWVgIGFuZCBgc3RhcnRUaW1lLCB3aGljaGV2ZXIgaXMgc21hbGxlci4KSWYgYGJsb2NrLnRpbWVzdGFtcGAgaXMgYmVmb3JlIGBzdGFydFRpbWVgLCBpdCByZXR1cm5zIDAuClBhbmljcyBpZiB0aGUgaWQgZG9lcyBub3QgcG9pbnQgdG8gYSB2YWxpZCBzdHJlYW0uAAAAAAhkZWx0YV9vZgAAAAEAAAAAAAAACXN0cmVhbV9pZAAAAAAAAAQAAAABAAAABg==",
+        "AAAAAAAAAQlSZXR1cm5zIHRoZSBhbW91bnQgb2YgdG9rZW5zIHRoYXQgaGF2ZSBhbHJlYWR5IGJlZW4gcmVsZWFzZWQgdG8gdGhlIHJlY2lwaWVudC4KUGFuaWNzIGlmIHRoZSBpZCBkb2VzIG5vdCBwb2ludCB0byBhIHZhbGlkIHN0cmVhbS4KQHBhcmFtIHN0cmVhbV9pZCBUaGUgaWQgb2YgdGhlIHN0cmVhbQpAcGFyYW0gd2hvIFRoZSBhZGRyZXNzIG9mIHRoZSBjYWxsZXIKQHJldHVybiBUaGUgYW1vdW50IG9mIHRva2VucyB0aGF0IGhhdmUgYWxyZWFkeSBiZWVuIHJlbGVhc2VkAAAAAAAACmJhbGFuY2Vfb2YAAAAAAAIAAAAAAAAACXN0cmVhbV9pZAAAAAAAAAQAAAAAAAAABmNhbGxlcgAAAAAAEwAAAAEAAAAL",
+        "AAAAAAAAAAAAAAANY3JlYXRlX3N0cmVhbQAAAAAAAAYAAAAAAAAABnNlbmRlcgAAAAAAEwAAAAAAAAAJcmVjaXBpZW50AAAAAAAAEwAAAAAAAAAGYW1vdW50AAAAAAALAAAAAAAAAA10b2tlbl9hZGRyZXNzAAAAAAAAEwAAAAAAAAAKc3RhcnRfdGltZQAAAAAABgAAAAAAAAAJc3RvcF90aW1lAAAAAAAABgAAAAEAAAAE",
+        "AAAAAAAAAAAAAAAUd2l0aGRyYXdfZnJvbV9zdHJlYW0AAAADAAAAAAAAAAlyZWNpcGllbnQAAAAAAAATAAAAAAAAAAlzdHJlYW1faWQAAAAAAAAEAAAAAAAAAAZhbW91bnQAAAAAAAsAAAAA",
+        "AAAAAAAAAUlDYW5jZWxzIHRoZSBzdHJlYW0gYW5kIHRyYW5zZmVycyB0aGUgdG9rZW5zIGJhY2sgb24gYSBwcm8gcmF0YSBiYXNpcy4KVGhyb3dzIGlmIHRoZSBpZCBkb2VzIG5vdCBwb2ludCB0byBhIHZhbGlkIHN0cmVhbS4KVGhyb3dzIGlmIHRoZSBjYWxsZXIgaXMgbm90IHRoZSBzZW5kZXIgb3IgdGhlIHJlY2lwaWVudCBvZiB0aGUgc3RyZWFtLgpUaHJvd3MgaWYgdGhlcmUgaXMgYSB0b2tlbiB0cmFuc2ZlciBmYWlsdXJlLgpAcGFyYW0gc3RyZWFtX2lkIFRoZSBpZCBvZiB0aGUgc3RyZWFtIHRvIGNhbmNlbC4KQHJldHVybiBib29sIHRydWU9c3VjY2Vzcywgb3RoZXJ3aXNlIGZhbHNlLgAAAAAAAA1jYW5jZWxfc3RyZWFtAAAAAAAAAgAAAAAAAAAGY2FsbGVyAAAAAAATAAAAAAAAAAlzdHJlYW1faWQAAAAAAAAEAAAAAA=="
+            ]);
     }
-    let arr = [
-        new xdr.ScMapEntry({key: ((i)=>xdr.ScVal.scvSymbol(i))("duration"), val: ((i)=>xdr.ScVal.scvU64(xdr.Uint64.fromString(i.toString())))(createStream["duration"])}),
-        new xdr.ScMapEntry({key: ((i)=>xdr.ScVal.scvSymbol(i))("rate_per_second"), val: ((i)=>xdr.ScVal.scvU64(xdr.Uint64.fromString(i.toString())))(createStream["rate_per_second"])})
-        ];
-    return xdr.ScVal.scvMap(arr);
-}
-
-
-function CreateStreamFromXdr(base64Xdr: string): CreateStream {
-    let scVal = strToScVal(base64Xdr);
-    let obj: [string, any][] = scVal.map()!.map(e => [e.key().str() as string, e.val()]);
-    let map = new Map<string, any>(obj);
-    if (!obj) {
-        throw new Error('Invalid XDR');
+    async initialize<R extends ResponseTypes = undefined>({token, start_id}: {token: Address, start_id: u32}, options: {
+        /**
+         * The fee to pay for the transaction. Default: 100.
+         */
+        fee?: number
+        /**
+         * What type of response to return.
+         *
+         *   - `undefined`, the default, parses the returned XDR as `void`. Runs preflight, checks to see if auth/signing is required, and sends the transaction if so. If there's no error and `secondsToWait` is positive, awaits the finalized transaction.
+         *   - `'simulated'` will only simulate/preflight the transaction, even if it's a change/set method that requires auth/signing. Returns full preflight info.
+         *   - `'full'` return the full RPC response, meaning either 1. the preflight info, if it's a view/read method that doesn't require auth/signing, or 2. the `sendTransaction` response, if there's a problem with sending the transaction or if you set `secondsToWait` to 0, or 3. the `getTransaction` response, if it's a change method with no `sendTransaction` errors and a positive `secondsToWait`.
+         */
+        responseType?: R
+        /**
+         * If the simulation shows that this invocation requires auth/signing, `invoke` will wait `secondsToWait` seconds for the transaction to complete before giving up and returning the incomplete {@link SorobanClient.SorobanRpc.GetTransactionResponse} results (or attempting to parse their probably-missing XDR with `parseResultXdr`, depending on `responseType`). Set this to `0` to skip waiting altogether, which will return you {@link SorobanClient.SorobanRpc.SendTransactionResponse} more quickly, before the transaction has time to be included in the ledger. Default: 10.
+         */
+        secondsToWait?: number
+    } = {}) {
+                    return await invoke({
+            method: 'initialize',
+            args: this.spec.funcArgsToScVals("initialize", {token, start_id}),
+            ...options,
+            ...this.options,
+            parseResultXdr: () => {},
+        });
     }
-    return {
-        duration: scValToJs(map.get("duration")) as unknown as u64,
-        rate_per_second: scValToJs(map.get("rate_per_second")) as unknown as u64
-    };
-}
 
-export type DataKey = {tag: "Token", values: void} | {tag: "NextStreamId", values: void} | {tag: "Streams", values: [u32]} | {tag: "UserStreams", values: [Address]};
 
-function DataKeyToXdr(dataKey?: DataKey): xdr.ScVal {
-    if (!dataKey) {
-        return xdr.ScVal.scvVoid();
+    async getStream<R extends ResponseTypes = undefined>({stream_id}: {stream_id: u32}, options: {
+        /**
+         * The fee to pay for the transaction. Default: 100.
+         */
+        fee?: number
+        /**
+         * What type of response to return.
+         *
+         *   - `undefined`, the default, parses the returned XDR as `Stream`. Runs preflight, checks to see if auth/signing is required, and sends the transaction if so. If there's no error and `secondsToWait` is positive, awaits the finalized transaction.
+         *   - `'simulated'` will only simulate/preflight the transaction, even if it's a change/set method that requires auth/signing. Returns full preflight info.
+         *   - `'full'` return the full RPC response, meaning either 1. the preflight info, if it's a view/read method that doesn't require auth/signing, or 2. the `sendTransaction` response, if there's a problem with sending the transaction or if you set `secondsToWait` to 0, or 3. the `getTransaction` response, if it's a change method with no `sendTransaction` errors and a positive `secondsToWait`.
+         */
+        responseType?: R
+        /**
+         * If the simulation shows that this invocation requires auth/signing, `invoke` will wait `secondsToWait` seconds for the transaction to complete before giving up and returning the incomplete {@link SorobanClient.SorobanRpc.GetTransactionResponse} results (or attempting to parse their probably-missing XDR with `parseResultXdr`, depending on `responseType`). Set this to `0` to skip waiting altogether, which will return you {@link SorobanClient.SorobanRpc.SendTransactionResponse} more quickly, before the transaction has time to be included in the ledger. Default: 10.
+         */
+        secondsToWait?: number
+    } = {}) {
+                    return await invoke({
+            method: 'get_stream',
+            args: this.spec.funcArgsToScVals("get_stream", {stream_id}),
+            ...options,
+            ...this.options,
+            parseResultXdr: (xdr): Stream => {
+                return this.spec.funcResToNative("get_stream", xdr);
+            },
+        });
     }
-    let res: xdr.ScVal[] = [];
-    switch (dataKey.tag) {
-        case "Token":
-            res.push(((i) => xdr.ScVal.scvSymbol(i))("Token"));
-            break;
-    case "NextStreamId":
-            res.push(((i) => xdr.ScVal.scvSymbol(i))("NextStreamId"));
-            break;
-    case "Streams":
-            res.push(((i) => xdr.ScVal.scvSymbol(i))("Streams"));
-            res.push(((i)=>xdr.ScVal.scvU32(i))(dataKey.values[0]));
-            break;
-    case "UserStreams":
-            res.push(((i) => xdr.ScVal.scvSymbol(i))("UserStreams"));
-            res.push(((i)=>addressToScVal(i))(dataKey.values[0]));
-            break;  
+
+
+    async getStreamsByUser<R extends ResponseTypes = undefined>({caller}: {caller: Address}, options: {
+        /**
+         * The fee to pay for the transaction. Default: 100.
+         */
+        fee?: number
+        /**
+         * What type of response to return.
+         *
+         *   - `undefined`, the default, parses the returned XDR as `Array<Stream>`. Runs preflight, checks to see if auth/signing is required, and sends the transaction if so. If there's no error and `secondsToWait` is positive, awaits the finalized transaction.
+         *   - `'simulated'` will only simulate/preflight the transaction, even if it's a change/set method that requires auth/signing. Returns full preflight info.
+         *   - `'full'` return the full RPC response, meaning either 1. the preflight info, if it's a view/read method that doesn't require auth/signing, or 2. the `sendTransaction` response, if there's a problem with sending the transaction or if you set `secondsToWait` to 0, or 3. the `getTransaction` response, if it's a change method with no `sendTransaction` errors and a positive `secondsToWait`.
+         */
+        responseType?: R
+        /**
+         * If the simulation shows that this invocation requires auth/signing, `invoke` will wait `secondsToWait` seconds for the transaction to complete before giving up and returning the incomplete {@link SorobanClient.SorobanRpc.GetTransactionResponse} results (or attempting to parse their probably-missing XDR with `parseResultXdr`, depending on `responseType`). Set this to `0` to skip waiting altogether, which will return you {@link SorobanClient.SorobanRpc.SendTransactionResponse} more quickly, before the transaction has time to be included in the ledger. Default: 10.
+         */
+        secondsToWait?: number
+    } = {}) {
+                    return await invoke({
+            method: 'get_streams_by_user',
+            args: this.spec.funcArgsToScVals("get_streams_by_user", {caller}),
+            ...options,
+            ...this.options,
+            parseResultXdr: (xdr): Array<Stream> => {
+                return this.spec.funcResToNative("get_streams_by_user", xdr);
+            },
+        });
     }
-    return xdr.ScVal.scvVec(res);
-}
 
-function DataKeyFromXdr(base64Xdr: string): DataKey {
-    type Tag = DataKey["tag"];
-    type Value = DataKey["values"];
-    let [tag, values] = strToScVal(base64Xdr).vec()!.map(scValToJs) as [Tag, Value];
-    if (!tag) {
-        throw new Error('Missing enum tag when decoding DataKey from XDR');
-    }
-    return { tag, values } as DataKey;
-}
 
-export async function initialize<R extends ResponseTypes = undefined>({token, start_id}: {token: Address, start_id: u32}, options: {
-  /**
-   * The fee to pay for the transaction. Default: 100.
-   */
-  fee?: number
-  /**
-   * What type of response to return.
-   *
-   *   - `undefined`, the default, parses the returned XDR as `void`. Runs preflight, checks to see if auth/signing is required, and sends the transaction if so. If there's no error and `secondsToWait` is positive, awaits the finalized transaction.
-   *   - `'simulated'` will only simulate/preflight the transaction, even if it's a change/set method that requires auth/signing. Returns full preflight info.
-   *   - `'full'` return the full RPC response, meaning either 1. the preflight info, if it's a view/read method that doesn't require auth/signing, or 2. the `sendTransaction` response, if there's a problem with sending the transaction or if you set `secondsToWait` to 0, or 3. the `getTransaction` response, if it's a change method with no `sendTransaction` errors and a positive `secondsToWait`.
-   */
-  responseType?: R
-  /**
-   * If the simulation shows that this invocation requires auth/signing, `invoke` will wait `secondsToWait` seconds for the transaction to complete before giving up and returning the incomplete {@link SorobanClient.SorobanRpc.GetTransactionResponse} results (or attempting to parse their probably-missing XDR with `parseResultXdr`, depending on `responseType`). Set this to `0` to skip waiting altogether, which will return you {@link SorobanClient.SorobanRpc.SendTransactionResponse} more quickly, before the transaction has time to be included in the ledger. Default: 10.
-   */
-  secondsToWait?: number
-  /**
-   * A Wallet interface, such as Freighter, that has the methods `isConnected`, `isAllowed`, `getUserInfo`, and `signTransaction`. If not provided, will attempt to import and use Freighter. Example:
-   *
-   * ```ts
-   * import freighter from "@stellar/freighter-api";
-   *
-   * // later, when calling this function:
-   *   wallet: freighter,
-   */
-  wallet?: Wallet
-} = {}) {
-    return await invoke({
-        method: 'initialize',
-        args: [((i) => addressToScVal(i))(token),
-        ((i) => xdr.ScVal.scvU32(i))(start_id)],
-        ...options,
-        parseResultXdr: () => {},
-    });
-}
-
-export async function getStream<R extends ResponseTypes = undefined>({stream_id}: {stream_id: u32}, options: {
-  /**
-   * The fee to pay for the transaction. Default: 100.
-   */
-  fee?: number
-  /**
-   * What type of response to return.
-   *
-   *   - `undefined`, the default, parses the returned XDR as `Stream`. Runs preflight, checks to see if auth/signing is required, and sends the transaction if so. If there's no error and `secondsToWait` is positive, awaits the finalized transaction.
-   *   - `'simulated'` will only simulate/preflight the transaction, even if it's a change/set method that requires auth/signing. Returns full preflight info.
-   *   - `'full'` return the full RPC response, meaning either 1. the preflight info, if it's a view/read method that doesn't require auth/signing, or 2. the `sendTransaction` response, if there's a problem with sending the transaction or if you set `secondsToWait` to 0, or 3. the `getTransaction` response, if it's a change method with no `sendTransaction` errors and a positive `secondsToWait`.
-   */
-  responseType?: R
-  /**
-   * If the simulation shows that this invocation requires auth/signing, `invoke` will wait `secondsToWait` seconds for the transaction to complete before giving up and returning the incomplete {@link SorobanClient.SorobanRpc.GetTransactionResponse} results (or attempting to parse their probably-missing XDR with `parseResultXdr`, depending on `responseType`). Set this to `0` to skip waiting altogether, which will return you {@link SorobanClient.SorobanRpc.SendTransactionResponse} more quickly, before the transaction has time to be included in the ledger. Default: 10.
-   */
-  secondsToWait?: number
-  /**
-   * A Wallet interface, such as Freighter, that has the methods `isConnected`, `isAllowed`, `getUserInfo`, and `signTransaction`. If not provided, will attempt to import and use Freighter. Example:
-   *
-   * ```ts
-   * import freighter from "@stellar/freighter-api";
-   *
-   * // later, when calling this function:
-   *   wallet: freighter,
-   */
-  wallet?: Wallet
-} = {}) {
-    return await invoke({
-        method: 'get_stream',
-        args: [((i) => xdr.ScVal.scvU32(i))(stream_id)],
-        ...options,
-        parseResultXdr: (xdr): Stream => {
-            return StreamFromXdr(xdr);
-        },
-    });
-}
-
-export async function getStreamsByUser<R extends ResponseTypes = undefined>({caller}: {caller: Address}, options: {
-  /**
-   * The fee to pay for the transaction. Default: 100.
-   */
-  fee?: number
-  /**
-   * What type of response to return.
-   *
-   *   - `undefined`, the default, parses the returned XDR as `Array<Stream>`. Runs preflight, checks to see if auth/signing is required, and sends the transaction if so. If there's no error and `secondsToWait` is positive, awaits the finalized transaction.
-   *   - `'simulated'` will only simulate/preflight the transaction, even if it's a change/set method that requires auth/signing. Returns full preflight info.
-   *   - `'full'` return the full RPC response, meaning either 1. the preflight info, if it's a view/read method that doesn't require auth/signing, or 2. the `sendTransaction` response, if there's a problem with sending the transaction or if you set `secondsToWait` to 0, or 3. the `getTransaction` response, if it's a change method with no `sendTransaction` errors and a positive `secondsToWait`.
-   */
-  responseType?: R
-  /**
-   * If the simulation shows that this invocation requires auth/signing, `invoke` will wait `secondsToWait` seconds for the transaction to complete before giving up and returning the incomplete {@link SorobanClient.SorobanRpc.GetTransactionResponse} results (or attempting to parse their probably-missing XDR with `parseResultXdr`, depending on `responseType`). Set this to `0` to skip waiting altogether, which will return you {@link SorobanClient.SorobanRpc.SendTransactionResponse} more quickly, before the transaction has time to be included in the ledger. Default: 10.
-   */
-  secondsToWait?: number
-  /**
-   * A Wallet interface, such as Freighter, that has the methods `isConnected`, `isAllowed`, `getUserInfo`, and `signTransaction`. If not provided, will attempt to import and use Freighter. Example:
-   *
-   * ```ts
-   * import freighter from "@stellar/freighter-api";
-   *
-   * // later, when calling this function:
-   *   wallet: freighter,
-   */
-  wallet?: Wallet
-} = {}) {
-    return await invoke({
-        method: 'get_streams_by_user',
-        args: [((i) => addressToScVal(i))(caller)],
-        ...options,
-        parseResultXdr: (xdr): Array<Stream> => {
-            return scValStrToJs(xdr);
-        },
-    });
-}
-
-/**
+    /**
  * Returns either the delta in seconds between `ledger.timestamp` and `startTime` or between `stopTime` and `startTime, whichever is smaller.
  * If `block.timestamp` is before `startTime`, it returns 0.
  * Panics if the id does not point to a valid stream.
  */
-export async function deltaOf<R extends ResponseTypes = undefined>({stream_id}: {stream_id: u32}, options: {
-  /**
-   * The fee to pay for the transaction. Default: 100.
-   */
-  fee?: number
-  /**
-   * What type of response to return.
-   *
-   *   - `undefined`, the default, parses the returned XDR as `u64`. Runs preflight, checks to see if auth/signing is required, and sends the transaction if so. If there's no error and `secondsToWait` is positive, awaits the finalized transaction.
-   *   - `'simulated'` will only simulate/preflight the transaction, even if it's a change/set method that requires auth/signing. Returns full preflight info.
-   *   - `'full'` return the full RPC response, meaning either 1. the preflight info, if it's a view/read method that doesn't require auth/signing, or 2. the `sendTransaction` response, if there's a problem with sending the transaction or if you set `secondsToWait` to 0, or 3. the `getTransaction` response, if it's a change method with no `sendTransaction` errors and a positive `secondsToWait`.
-   */
-  responseType?: R
-  /**
-   * If the simulation shows that this invocation requires auth/signing, `invoke` will wait `secondsToWait` seconds for the transaction to complete before giving up and returning the incomplete {@link SorobanClient.SorobanRpc.GetTransactionResponse} results (or attempting to parse their probably-missing XDR with `parseResultXdr`, depending on `responseType`). Set this to `0` to skip waiting altogether, which will return you {@link SorobanClient.SorobanRpc.SendTransactionResponse} more quickly, before the transaction has time to be included in the ledger. Default: 10.
-   */
-  secondsToWait?: number
-  /**
-   * A Wallet interface, such as Freighter, that has the methods `isConnected`, `isAllowed`, `getUserInfo`, and `signTransaction`. If not provided, will attempt to import and use Freighter. Example:
-   *
-   * ```ts
-   * import freighter from "@stellar/freighter-api";
-   *
-   * // later, when calling this function:
-   *   wallet: freighter,
-   */
-  wallet?: Wallet
-} = {}) {
-    return await invoke({
-        method: 'delta_of',
-        args: [((i) => xdr.ScVal.scvU32(i))(stream_id)],
-        ...options,
-        parseResultXdr: (xdr): u64 => {
-            return scValStrToJs(xdr);
-        },
-    });
-}
+async deltaOf<R extends ResponseTypes = undefined>({stream_id}: {stream_id: u32}, options: {
+        /**
+         * The fee to pay for the transaction. Default: 100.
+         */
+        fee?: number
+        /**
+         * What type of response to return.
+         *
+         *   - `undefined`, the default, parses the returned XDR as `u64`. Runs preflight, checks to see if auth/signing is required, and sends the transaction if so. If there's no error and `secondsToWait` is positive, awaits the finalized transaction.
+         *   - `'simulated'` will only simulate/preflight the transaction, even if it's a change/set method that requires auth/signing. Returns full preflight info.
+         *   - `'full'` return the full RPC response, meaning either 1. the preflight info, if it's a view/read method that doesn't require auth/signing, or 2. the `sendTransaction` response, if there's a problem with sending the transaction or if you set `secondsToWait` to 0, or 3. the `getTransaction` response, if it's a change method with no `sendTransaction` errors and a positive `secondsToWait`.
+         */
+        responseType?: R
+        /**
+         * If the simulation shows that this invocation requires auth/signing, `invoke` will wait `secondsToWait` seconds for the transaction to complete before giving up and returning the incomplete {@link SorobanClient.SorobanRpc.GetTransactionResponse} results (or attempting to parse their probably-missing XDR with `parseResultXdr`, depending on `responseType`). Set this to `0` to skip waiting altogether, which will return you {@link SorobanClient.SorobanRpc.SendTransactionResponse} more quickly, before the transaction has time to be included in the ledger. Default: 10.
+         */
+        secondsToWait?: number
+    } = {}) {
+                    return await invoke({
+            method: 'delta_of',
+            args: this.spec.funcArgsToScVals("delta_of", {stream_id}),
+            ...options,
+            ...this.options,
+            parseResultXdr: (xdr): u64 => {
+                return this.spec.funcResToNative("delta_of", xdr);
+            },
+        });
+    }
 
-/**
+
+    /**
  * Returns the amount of tokens that have already been released to the recipient.
  * Panics if the id does not point to a valid stream.
  * @param stream_id The id of the stream
  * @param who The address of the caller
  * @return The amount of tokens that have already been released
  */
-export async function balanceOf<R extends ResponseTypes = undefined>({stream_id, caller}: {stream_id: u32, caller: Address}, options: {
-  /**
-   * The fee to pay for the transaction. Default: 100.
-   */
-  fee?: number
-  /**
-   * What type of response to return.
-   *
-   *   - `undefined`, the default, parses the returned XDR as `i128`. Runs preflight, checks to see if auth/signing is required, and sends the transaction if so. If there's no error and `secondsToWait` is positive, awaits the finalized transaction.
-   *   - `'simulated'` will only simulate/preflight the transaction, even if it's a change/set method that requires auth/signing. Returns full preflight info.
-   *   - `'full'` return the full RPC response, meaning either 1. the preflight info, if it's a view/read method that doesn't require auth/signing, or 2. the `sendTransaction` response, if there's a problem with sending the transaction or if you set `secondsToWait` to 0, or 3. the `getTransaction` response, if it's a change method with no `sendTransaction` errors and a positive `secondsToWait`.
-   */
-  responseType?: R
-  /**
-   * If the simulation shows that this invocation requires auth/signing, `invoke` will wait `secondsToWait` seconds for the transaction to complete before giving up and returning the incomplete {@link SorobanClient.SorobanRpc.GetTransactionResponse} results (or attempting to parse their probably-missing XDR with `parseResultXdr`, depending on `responseType`). Set this to `0` to skip waiting altogether, which will return you {@link SorobanClient.SorobanRpc.SendTransactionResponse} more quickly, before the transaction has time to be included in the ledger. Default: 10.
-   */
-  secondsToWait?: number
-  /**
-   * A Wallet interface, such as Freighter, that has the methods `isConnected`, `isAllowed`, `getUserInfo`, and `signTransaction`. If not provided, will attempt to import and use Freighter. Example:
-   *
-   * ```ts
-   * import freighter from "@stellar/freighter-api";
-   *
-   * // later, when calling this function:
-   *   wallet: freighter,
-   */
-  wallet?: Wallet
-} = {}) {
-    return await invoke({
-        method: 'balance_of',
-        args: [((i) => xdr.ScVal.scvU32(i))(stream_id),
-        ((i) => addressToScVal(i))(caller)],
-        ...options,
-        parseResultXdr: (xdr): i128 => {
-            return scValStrToJs(xdr);
-        },
-    });
-}
+async balanceOf<R extends ResponseTypes = undefined>({stream_id, caller}: {stream_id: u32, caller: Address}, options: {
+        /**
+         * The fee to pay for the transaction. Default: 100.
+         */
+        fee?: number
+        /**
+         * What type of response to return.
+         *
+         *   - `undefined`, the default, parses the returned XDR as `i128`. Runs preflight, checks to see if auth/signing is required, and sends the transaction if so. If there's no error and `secondsToWait` is positive, awaits the finalized transaction.
+         *   - `'simulated'` will only simulate/preflight the transaction, even if it's a change/set method that requires auth/signing. Returns full preflight info.
+         *   - `'full'` return the full RPC response, meaning either 1. the preflight info, if it's a view/read method that doesn't require auth/signing, or 2. the `sendTransaction` response, if there's a problem with sending the transaction or if you set `secondsToWait` to 0, or 3. the `getTransaction` response, if it's a change method with no `sendTransaction` errors and a positive `secondsToWait`.
+         */
+        responseType?: R
+        /**
+         * If the simulation shows that this invocation requires auth/signing, `invoke` will wait `secondsToWait` seconds for the transaction to complete before giving up and returning the incomplete {@link SorobanClient.SorobanRpc.GetTransactionResponse} results (or attempting to parse their probably-missing XDR with `parseResultXdr`, depending on `responseType`). Set this to `0` to skip waiting altogether, which will return you {@link SorobanClient.SorobanRpc.SendTransactionResponse} more quickly, before the transaction has time to be included in the ledger. Default: 10.
+         */
+        secondsToWait?: number
+    } = {}) {
+                    return await invoke({
+            method: 'balance_of',
+            args: this.spec.funcArgsToScVals("balance_of", {stream_id, caller}),
+            ...options,
+            ...this.options,
+            parseResultXdr: (xdr): i128 => {
+                return this.spec.funcResToNative("balance_of", xdr);
+            },
+        });
+    }
 
-export async function createStream<R extends ResponseTypes = undefined>({sender, recipient, amount, token_address, start_time, stop_time}: {sender: Address, recipient: Address, amount: i128, token_address: Address, start_time: u64, stop_time: u64}, options: {
-  /**
-   * The fee to pay for the transaction. Default: 100.
-   */
-  fee?: number
-  /**
-   * What type of response to return.
-   *
-   *   - `undefined`, the default, parses the returned XDR as `u32`. Runs preflight, checks to see if auth/signing is required, and sends the transaction if so. If there's no error and `secondsToWait` is positive, awaits the finalized transaction.
-   *   - `'simulated'` will only simulate/preflight the transaction, even if it's a change/set method that requires auth/signing. Returns full preflight info.
-   *   - `'full'` return the full RPC response, meaning either 1. the preflight info, if it's a view/read method that doesn't require auth/signing, or 2. the `sendTransaction` response, if there's a problem with sending the transaction or if you set `secondsToWait` to 0, or 3. the `getTransaction` response, if it's a change method with no `sendTransaction` errors and a positive `secondsToWait`.
-   */
-  responseType?: R
-  /**
-   * If the simulation shows that this invocation requires auth/signing, `invoke` will wait `secondsToWait` seconds for the transaction to complete before giving up and returning the incomplete {@link SorobanClient.SorobanRpc.GetTransactionResponse} results (or attempting to parse their probably-missing XDR with `parseResultXdr`, depending on `responseType`). Set this to `0` to skip waiting altogether, which will return you {@link SorobanClient.SorobanRpc.SendTransactionResponse} more quickly, before the transaction has time to be included in the ledger. Default: 10.
-   */
-  secondsToWait?: number
-  /**
-   * A Wallet interface, such as Freighter, that has the methods `isConnected`, `isAllowed`, `getUserInfo`, and `signTransaction`. If not provided, will attempt to import and use Freighter. Example:
-   *
-   * ```ts
-   * import freighter from "@stellar/freighter-api";
-   *
-   * // later, when calling this function:
-   *   wallet: freighter,
-   */
-  wallet?: Wallet
-} = {}) {
-    return await invoke({
-        method: 'create_stream',
-        args: [((i) => addressToScVal(i))(sender),
-        ((i) => addressToScVal(i))(recipient),
-        ((i) => i128ToScVal(i))(amount),
-        ((i) => addressToScVal(i))(token_address),
-        ((i) => xdr.ScVal.scvU64(xdr.Uint64.fromString(i.toString())))(start_time),
-        ((i) => xdr.ScVal.scvU64(xdr.Uint64.fromString(i.toString())))(stop_time)],
-        ...options,
-        parseResultXdr: (xdr): u32 => {
-            return scValStrToJs(xdr);
-        },
-    });
-}
 
-export async function withdrawFromStream<R extends ResponseTypes = undefined>({recipient, stream_id, amount}: {recipient: Address, stream_id: u32, amount: i128}, options: {
-  /**
-   * The fee to pay for the transaction. Default: 100.
-   */
-  fee?: number
-  /**
-   * What type of response to return.
-   *
-   *   - `undefined`, the default, parses the returned XDR as `void`. Runs preflight, checks to see if auth/signing is required, and sends the transaction if so. If there's no error and `secondsToWait` is positive, awaits the finalized transaction.
-   *   - `'simulated'` will only simulate/preflight the transaction, even if it's a change/set method that requires auth/signing. Returns full preflight info.
-   *   - `'full'` return the full RPC response, meaning either 1. the preflight info, if it's a view/read method that doesn't require auth/signing, or 2. the `sendTransaction` response, if there's a problem with sending the transaction or if you set `secondsToWait` to 0, or 3. the `getTransaction` response, if it's a change method with no `sendTransaction` errors and a positive `secondsToWait`.
-   */
-  responseType?: R
-  /**
-   * If the simulation shows that this invocation requires auth/signing, `invoke` will wait `secondsToWait` seconds for the transaction to complete before giving up and returning the incomplete {@link SorobanClient.SorobanRpc.GetTransactionResponse} results (or attempting to parse their probably-missing XDR with `parseResultXdr`, depending on `responseType`). Set this to `0` to skip waiting altogether, which will return you {@link SorobanClient.SorobanRpc.SendTransactionResponse} more quickly, before the transaction has time to be included in the ledger. Default: 10.
-   */
-  secondsToWait?: number
-  /**
-   * A Wallet interface, such as Freighter, that has the methods `isConnected`, `isAllowed`, `getUserInfo`, and `signTransaction`. If not provided, will attempt to import and use Freighter. Example:
-   *
-   * ```ts
-   * import freighter from "@stellar/freighter-api";
-   *
-   * // later, when calling this function:
-   *   wallet: freighter,
-   */
-  wallet?: Wallet
-} = {}) {
-    return await invoke({
-        method: 'withdraw_from_stream',
-        args: [((i) => addressToScVal(i))(recipient),
-        ((i) => xdr.ScVal.scvU32(i))(stream_id),
-        ((i) => i128ToScVal(i))(amount)],
-        ...options,
-        parseResultXdr: () => {},
-    });
-}
+    async createStream<R extends ResponseTypes = undefined>({sender, recipient, amount, token_address, start_time, stop_time}: {sender: Address, recipient: Address, amount: i128, token_address: Address, start_time: u64, stop_time: u64}, options: {
+        /**
+         * The fee to pay for the transaction. Default: 100.
+         */
+        fee?: number
+        /**
+         * What type of response to return.
+         *
+         *   - `undefined`, the default, parses the returned XDR as `u32`. Runs preflight, checks to see if auth/signing is required, and sends the transaction if so. If there's no error and `secondsToWait` is positive, awaits the finalized transaction.
+         *   - `'simulated'` will only simulate/preflight the transaction, even if it's a change/set method that requires auth/signing. Returns full preflight info.
+         *   - `'full'` return the full RPC response, meaning either 1. the preflight info, if it's a view/read method that doesn't require auth/signing, or 2. the `sendTransaction` response, if there's a problem with sending the transaction or if you set `secondsToWait` to 0, or 3. the `getTransaction` response, if it's a change method with no `sendTransaction` errors and a positive `secondsToWait`.
+         */
+        responseType?: R
+        /**
+         * If the simulation shows that this invocation requires auth/signing, `invoke` will wait `secondsToWait` seconds for the transaction to complete before giving up and returning the incomplete {@link SorobanClient.SorobanRpc.GetTransactionResponse} results (or attempting to parse their probably-missing XDR with `parseResultXdr`, depending on `responseType`). Set this to `0` to skip waiting altogether, which will return you {@link SorobanClient.SorobanRpc.SendTransactionResponse} more quickly, before the transaction has time to be included in the ledger. Default: 10.
+         */
+        secondsToWait?: number
+    } = {}) {
+                    return await invoke({
+            method: 'create_stream',
+            args: this.spec.funcArgsToScVals("create_stream", {sender, recipient, amount, token_address, start_time, stop_time}),
+            ...options,
+            ...this.options,
+            parseResultXdr: (xdr): u32 => {
+                return this.spec.funcResToNative("create_stream", xdr);
+            },
+        });
+    }
 
-/**
+
+    async withdrawFromStream<R extends ResponseTypes = undefined>({recipient, stream_id, amount}: {recipient: Address, stream_id: u32, amount: i128}, options: {
+        /**
+         * The fee to pay for the transaction. Default: 100.
+         */
+        fee?: number
+        /**
+         * What type of response to return.
+         *
+         *   - `undefined`, the default, parses the returned XDR as `void`. Runs preflight, checks to see if auth/signing is required, and sends the transaction if so. If there's no error and `secondsToWait` is positive, awaits the finalized transaction.
+         *   - `'simulated'` will only simulate/preflight the transaction, even if it's a change/set method that requires auth/signing. Returns full preflight info.
+         *   - `'full'` return the full RPC response, meaning either 1. the preflight info, if it's a view/read method that doesn't require auth/signing, or 2. the `sendTransaction` response, if there's a problem with sending the transaction or if you set `secondsToWait` to 0, or 3. the `getTransaction` response, if it's a change method with no `sendTransaction` errors and a positive `secondsToWait`.
+         */
+        responseType?: R
+        /**
+         * If the simulation shows that this invocation requires auth/signing, `invoke` will wait `secondsToWait` seconds for the transaction to complete before giving up and returning the incomplete {@link SorobanClient.SorobanRpc.GetTransactionResponse} results (or attempting to parse their probably-missing XDR with `parseResultXdr`, depending on `responseType`). Set this to `0` to skip waiting altogether, which will return you {@link SorobanClient.SorobanRpc.SendTransactionResponse} more quickly, before the transaction has time to be included in the ledger. Default: 10.
+         */
+        secondsToWait?: number
+    } = {}) {
+                    return await invoke({
+            method: 'withdraw_from_stream',
+            args: this.spec.funcArgsToScVals("withdraw_from_stream", {recipient, stream_id, amount}),
+            ...options,
+            ...this.options,
+            parseResultXdr: () => {},
+        });
+    }
+
+
+    /**
  * Cancels the stream and transfers the tokens back on a pro rata basis.
  * Throws if the id does not point to a valid stream.
  * Throws if the caller is not the sender or the recipient of the stream.
@@ -538,43 +371,31 @@ export async function withdrawFromStream<R extends ResponseTypes = undefined>({r
  * @param stream_id The id of the stream to cancel.
  * @return bool true=success, otherwise false.
  */
-export async function cancelStream<R extends ResponseTypes = undefined>({caller, stream_id}: {caller: Address, stream_id: u32}, options: {
-  /**
-   * The fee to pay for the transaction. Default: 100.
-   */
-  fee?: number
-  /**
-   * What type of response to return.
-   *
-   *   - `undefined`, the default, parses the returned XDR as `void`. Runs preflight, checks to see if auth/signing is required, and sends the transaction if so. If there's no error and `secondsToWait` is positive, awaits the finalized transaction.
-   *   - `'simulated'` will only simulate/preflight the transaction, even if it's a change/set method that requires auth/signing. Returns full preflight info.
-   *   - `'full'` return the full RPC response, meaning either 1. the preflight info, if it's a view/read method that doesn't require auth/signing, or 2. the `sendTransaction` response, if there's a problem with sending the transaction or if you set `secondsToWait` to 0, or 3. the `getTransaction` response, if it's a change method with no `sendTransaction` errors and a positive `secondsToWait`.
-   */
-  responseType?: R
-  /**
-   * If the simulation shows that this invocation requires auth/signing, `invoke` will wait `secondsToWait` seconds for the transaction to complete before giving up and returning the incomplete {@link SorobanClient.SorobanRpc.GetTransactionResponse} results (or attempting to parse their probably-missing XDR with `parseResultXdr`, depending on `responseType`). Set this to `0` to skip waiting altogether, which will return you {@link SorobanClient.SorobanRpc.SendTransactionResponse} more quickly, before the transaction has time to be included in the ledger. Default: 10.
-   */
-  secondsToWait?: number
-  /**
-   * A Wallet interface, such as Freighter, that has the methods `isConnected`, `isAllowed`, `getUserInfo`, and `signTransaction`. If not provided, will attempt to import and use Freighter. Example:
-   *
-   * ```ts
-   * import freighter from "@stellar/freighter-api";
-   *
-   * // later, when calling this function:
-   *   wallet: freighter,
-   */
-  wallet?: Wallet
-} = {}) {
-    return await invoke({
-        method: 'cancel_stream',
-        args: [((i) => addressToScVal(i))(caller),
-        ((i) => xdr.ScVal.scvU32(i))(stream_id)],
-        ...options,
-        parseResultXdr: () => {},
-    });
+async cancelStream<R extends ResponseTypes = undefined>({caller, stream_id}: {caller: Address, stream_id: u32}, options: {
+        /**
+         * The fee to pay for the transaction. Default: 100.
+         */
+        fee?: number
+        /**
+         * What type of response to return.
+         *
+         *   - `undefined`, the default, parses the returned XDR as `void`. Runs preflight, checks to see if auth/signing is required, and sends the transaction if so. If there's no error and `secondsToWait` is positive, awaits the finalized transaction.
+         *   - `'simulated'` will only simulate/preflight the transaction, even if it's a change/set method that requires auth/signing. Returns full preflight info.
+         *   - `'full'` return the full RPC response, meaning either 1. the preflight info, if it's a view/read method that doesn't require auth/signing, or 2. the `sendTransaction` response, if there's a problem with sending the transaction or if you set `secondsToWait` to 0, or 3. the `getTransaction` response, if it's a change method with no `sendTransaction` errors and a positive `secondsToWait`.
+         */
+        responseType?: R
+        /**
+         * If the simulation shows that this invocation requires auth/signing, `invoke` will wait `secondsToWait` seconds for the transaction to complete before giving up and returning the incomplete {@link SorobanClient.SorobanRpc.GetTransactionResponse} results (or attempting to parse their probably-missing XDR with `parseResultXdr`, depending on `responseType`). Set this to `0` to skip waiting altogether, which will return you {@link SorobanClient.SorobanRpc.SendTransactionResponse} more quickly, before the transaction has time to be included in the ledger. Default: 10.
+         */
+        secondsToWait?: number
+    } = {}) {
+                    return await invoke({
+            method: 'cancel_stream',
+            args: this.spec.funcArgsToScVals("cancel_stream", {caller, stream_id}),
+            ...options,
+            ...this.options,
+            parseResultXdr: () => {},
+        });
+    }
+
 }
-
-const Errors = [ 
-
-]

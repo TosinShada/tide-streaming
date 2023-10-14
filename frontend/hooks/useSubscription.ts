@@ -6,15 +6,10 @@ interface GeneratedLibrary {
   Server: SorobanClient.Server
   CONTRACT_ID_HEX: string
 }
-
-// TODO: update js-soroban-client to include latestLedger
 interface GetEventsWithLatestLedger extends SorobanClient.SorobanRpc.GetEventsResponse {
-  latestLedger?: string;
+  latestLedger: string;
 }
 
-/**
- * Concatenated `${CONTRACT_ID_HEX}:${topic}`
- */
 type PagingKey = string
 
 /**
@@ -23,15 +18,6 @@ type PagingKey = string
  */
 const paging: Record<PagingKey, { lastLedgerStart?: number, pagingToken?: string }> = {}
 
-/**
- * Subscribe to events for a given topic from a given contract, using a library
- * generated with `soroban contract bindings typescript`.
- *
- * Someday such generated libraries will include functions for subscribing to
- * the events the contract emits, but for now you can copy this hook into your
- * React project if you need to subscribe to events, or adapt this logic for
- * non-React use.
- */
 export function useSubscription(
   library: GeneratedLibrary,
   topic: string,

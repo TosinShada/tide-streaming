@@ -6,18 +6,9 @@ NETWORK="$1"
 
 SOROBAN_RPC_HOST="$2"
 
-PATH=./target/bin:$PATH
-
 if [[ -f "./.stream-payment-dapp/streamdapp_id" ]]; then
   echo "Found existing './.stream-payment-dapp' directory; already initialized."
   exit 0
-fi
-
-if [[ -f "./target/bin/soroban" ]]; then
-  echo "Using soroban binary from ./target/bin"
-else
-  echo "Building pinned soroban binary"
-  cargo install_soroban
 fi
 
 if [[ "$SOROBAN_RPC_HOST" == "" ]]; then

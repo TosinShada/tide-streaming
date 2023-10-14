@@ -14,14 +14,13 @@ var __exportStar = (this && this.__exportStar) || function(m, exports) {
     for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.cancelStream = exports.withdrawFromStream = exports.createStream = exports.balanceOf = exports.deltaOf = exports.getStreamsByUser = exports.getStream = exports.initialize = exports.Err = exports.Ok = void 0;
+exports.Contract = exports.networks = exports.Err = exports.Ok = exports.Address = void 0;
 const soroban_client_1 = require("soroban-client");
+Object.defineProperty(exports, "Address", { enumerable: true, get: function () { return soroban_client_1.Address; } });
 const buffer_1 = require("buffer");
-const convert_js_1 = require("./convert.js");
 const invoke_js_1 = require("./invoke.js");
-__exportStar(require("./constants.js"), exports);
-__exportStar(require("./server.js"), exports);
 __exportStar(require("./invoke.js"), exports);
+__exportStar(require("./method-options.js"), exports);
 ;
 ;
 class Ok {
@@ -66,233 +65,135 @@ if (typeof window !== 'undefined') {
     //@ts-ignore Buffer exists
     window.Buffer = window.Buffer || buffer_1.Buffer;
 }
-const regex = /ContractError\((\d+)\)/;
-function getError(err) {
-    const match = err.match(regex);
+const regex = /Error\(Contract, #(\d+)\)/;
+function parseError(message) {
+    const match = message.match(regex);
     if (!match) {
         return undefined;
     }
-    if (Errors == undefined) {
+    if (Errors === undefined) {
         return undefined;
     }
-    // @ts-ignore
     let i = parseInt(match[1], 10);
-    if (i < Errors.length) {
-        return new Err(Errors[i]);
+    let err = Errors[i];
+    if (err) {
+        return new Err(err);
     }
     return undefined;
 }
-function StreamToXdr(stream) {
-    if (!stream) {
-        return soroban_client_1.xdr.ScVal.scvVoid();
+exports.networks = {
+    futurenet: {
+        networkPassphrase: "Test SDF Future Network ; October 2022",
+        contractId: "CDSQFWPHBASD2BBQTQJS4KIMBMFTR63YEPIBIFSACVVNIMFI3IQT36O4",
     }
-    let arr = [
-        new soroban_client_1.xdr.ScMapEntry({ key: ((i) => soroban_client_1.xdr.ScVal.scvSymbol(i))("deposit"), val: ((i) => (0, convert_js_1.i128ToScVal)(i))(stream["deposit"]) }),
-        new soroban_client_1.xdr.ScMapEntry({ key: ((i) => soroban_client_1.xdr.ScVal.scvSymbol(i))("id"), val: ((i) => soroban_client_1.xdr.ScVal.scvU32(i))(stream["id"]) }),
-        new soroban_client_1.xdr.ScMapEntry({ key: ((i) => soroban_client_1.xdr.ScVal.scvSymbol(i))("rate_per_second"), val: ((i) => soroban_client_1.xdr.ScVal.scvU64(soroban_client_1.xdr.Uint64.fromString(i.toString())))(stream["rate_per_second"]) }),
-        new soroban_client_1.xdr.ScMapEntry({ key: ((i) => soroban_client_1.xdr.ScVal.scvSymbol(i))("recipient"), val: ((i) => (0, convert_js_1.addressToScVal)(i))(stream["recipient"]) }),
-        new soroban_client_1.xdr.ScMapEntry({ key: ((i) => soroban_client_1.xdr.ScVal.scvSymbol(i))("remaining_balance"), val: ((i) => (0, convert_js_1.i128ToScVal)(i))(stream["remaining_balance"]) }),
-        new soroban_client_1.xdr.ScMapEntry({ key: ((i) => soroban_client_1.xdr.ScVal.scvSymbol(i))("sender"), val: ((i) => (0, convert_js_1.addressToScVal)(i))(stream["sender"]) }),
-        new soroban_client_1.xdr.ScMapEntry({ key: ((i) => soroban_client_1.xdr.ScVal.scvSymbol(i))("start_time"), val: ((i) => soroban_client_1.xdr.ScVal.scvU64(soroban_client_1.xdr.Uint64.fromString(i.toString())))(stream["start_time"]) }),
-        new soroban_client_1.xdr.ScMapEntry({ key: ((i) => soroban_client_1.xdr.ScVal.scvSymbol(i))("stop_time"), val: ((i) => soroban_client_1.xdr.ScVal.scvU64(soroban_client_1.xdr.Uint64.fromString(i.toString())))(stream["stop_time"]) }),
-        new soroban_client_1.xdr.ScMapEntry({ key: ((i) => soroban_client_1.xdr.ScVal.scvSymbol(i))("token_address"), val: ((i) => (0, convert_js_1.addressToScVal)(i))(stream["token_address"]) }),
-        new soroban_client_1.xdr.ScMapEntry({ key: ((i) => soroban_client_1.xdr.ScVal.scvSymbol(i))("token_decimals"), val: ((i) => soroban_client_1.xdr.ScVal.scvU32(i))(stream["token_decimals"]) }),
-        new soroban_client_1.xdr.ScMapEntry({ key: ((i) => soroban_client_1.xdr.ScVal.scvSymbol(i))("token_symbol"), val: ((i) => soroban_client_1.xdr.ScVal.scvString(i))(stream["token_symbol"]) })
-    ];
-    return soroban_client_1.xdr.ScVal.scvMap(arr);
-}
-function StreamFromXdr(base64Xdr) {
-    let scVal = (0, convert_js_1.strToScVal)(base64Xdr);
-    let obj = scVal.map().map(e => [e.key().str(), e.val()]);
-    let map = new Map(obj);
-    if (!obj) {
-        throw new Error('Invalid XDR');
+};
+const Errors = {};
+class Contract {
+    options;
+    spec;
+    constructor(options) {
+        this.options = options;
+        this.spec = new soroban_client_1.ContractSpec([
+            "AAAAAQAAAAAAAAAAAAAABlN0cmVhbQAAAAAACwAAAAAAAAAHZGVwb3NpdAAAAAALAAAAAAAAAAJpZAAAAAAABAAAAAAAAAAPcmF0ZV9wZXJfc2Vjb25kAAAAAAYAAAAAAAAACXJlY2lwaWVudAAAAAAAABMAAAAAAAAAEXJlbWFpbmluZ19iYWxhbmNlAAAAAAAACwAAAAAAAAAGc2VuZGVyAAAAAAATAAAAAAAAAApzdGFydF90aW1lAAAAAAAGAAAAAAAAAAlzdG9wX3RpbWUAAAAAAAAGAAAAAAAAAA10b2tlbl9hZGRyZXNzAAAAAAAAEwAAAAAAAAAOdG9rZW5fZGVjaW1hbHMAAAAAAAQAAAAAAAAADHRva2VuX3N5bWJvbAAAABA=",
+            "AAAAAQAAAAAAAAAAAAAADExvY2FsQmFsYW5jZQAAAAMAAAAAAAAAEXJlY2lwaWVudF9iYWxhbmNlAAAAAAAACwAAAAAAAAAOc2VuZGVyX2JhbGFuY2UAAAAAAAsAAAAAAAAAEXdpdGhkcmF3YWxfYW1vdW50AAAAAAAACw==",
+            "AAAAAQAAAAAAAAAAAAAADENyZWF0ZVN0cmVhbQAAAAIAAAAAAAAACGR1cmF0aW9uAAAABgAAAAAAAAAPcmF0ZV9wZXJfc2Vjb25kAAAAAAY=",
+            "AAAAAgAAAAAAAAAAAAAAB0RhdGFLZXkAAAAABAAAAAAAAAAAAAAABVRva2VuAAAAAAAAAAAAAAAAAAAMTmV4dFN0cmVhbUlkAAAAAQAAAAAAAAAHU3RyZWFtcwAAAAABAAAABAAAAAEAAAAAAAAAC1VzZXJTdHJlYW1zAAAAAAEAAAAT",
+            "AAAAAAAAAAAAAAAKaW5pdGlhbGl6ZQAAAAAAAgAAAAAAAAAFdG9rZW4AAAAAAAATAAAAAAAAAAhzdGFydF9pZAAAAAQAAAAA",
+            "AAAAAAAAAAAAAAAKZ2V0X3N0cmVhbQAAAAAAAQAAAAAAAAAJc3RyZWFtX2lkAAAAAAAABAAAAAEAAAfQAAAABlN0cmVhbQAA",
+            "AAAAAAAAAAAAAAATZ2V0X3N0cmVhbXNfYnlfdXNlcgAAAAABAAAAAAAAAAZjYWxsZXIAAAAAABMAAAABAAAD6gAAB9AAAAAGU3RyZWFtAAA=",
+            "AAAAAAAAAPdSZXR1cm5zIGVpdGhlciB0aGUgZGVsdGEgaW4gc2Vjb25kcyBiZXR3ZWVuIGBsZWRnZXIudGltZXN0YW1wYCBhbmQgYHN0YXJ0VGltZWAgb3IgYmV0d2VlbiBgc3RvcFRpbWVgIGFuZCBgc3RhcnRUaW1lLCB3aGljaGV2ZXIgaXMgc21hbGxlci4KSWYgYGJsb2NrLnRpbWVzdGFtcGAgaXMgYmVmb3JlIGBzdGFydFRpbWVgLCBpdCByZXR1cm5zIDAuClBhbmljcyBpZiB0aGUgaWQgZG9lcyBub3QgcG9pbnQgdG8gYSB2YWxpZCBzdHJlYW0uAAAAAAhkZWx0YV9vZgAAAAEAAAAAAAAACXN0cmVhbV9pZAAAAAAAAAQAAAABAAAABg==",
+            "AAAAAAAAAQlSZXR1cm5zIHRoZSBhbW91bnQgb2YgdG9rZW5zIHRoYXQgaGF2ZSBhbHJlYWR5IGJlZW4gcmVsZWFzZWQgdG8gdGhlIHJlY2lwaWVudC4KUGFuaWNzIGlmIHRoZSBpZCBkb2VzIG5vdCBwb2ludCB0byBhIHZhbGlkIHN0cmVhbS4KQHBhcmFtIHN0cmVhbV9pZCBUaGUgaWQgb2YgdGhlIHN0cmVhbQpAcGFyYW0gd2hvIFRoZSBhZGRyZXNzIG9mIHRoZSBjYWxsZXIKQHJldHVybiBUaGUgYW1vdW50IG9mIHRva2VucyB0aGF0IGhhdmUgYWxyZWFkeSBiZWVuIHJlbGVhc2VkAAAAAAAACmJhbGFuY2Vfb2YAAAAAAAIAAAAAAAAACXN0cmVhbV9pZAAAAAAAAAQAAAAAAAAABmNhbGxlcgAAAAAAEwAAAAEAAAAL",
+            "AAAAAAAAAAAAAAANY3JlYXRlX3N0cmVhbQAAAAAAAAYAAAAAAAAABnNlbmRlcgAAAAAAEwAAAAAAAAAJcmVjaXBpZW50AAAAAAAAEwAAAAAAAAAGYW1vdW50AAAAAAALAAAAAAAAAA10b2tlbl9hZGRyZXNzAAAAAAAAEwAAAAAAAAAKc3RhcnRfdGltZQAAAAAABgAAAAAAAAAJc3RvcF90aW1lAAAAAAAABgAAAAEAAAAE",
+            "AAAAAAAAAAAAAAAUd2l0aGRyYXdfZnJvbV9zdHJlYW0AAAADAAAAAAAAAAlyZWNpcGllbnQAAAAAAAATAAAAAAAAAAlzdHJlYW1faWQAAAAAAAAEAAAAAAAAAAZhbW91bnQAAAAAAAsAAAAA",
+            "AAAAAAAAAUlDYW5jZWxzIHRoZSBzdHJlYW0gYW5kIHRyYW5zZmVycyB0aGUgdG9rZW5zIGJhY2sgb24gYSBwcm8gcmF0YSBiYXNpcy4KVGhyb3dzIGlmIHRoZSBpZCBkb2VzIG5vdCBwb2ludCB0byBhIHZhbGlkIHN0cmVhbS4KVGhyb3dzIGlmIHRoZSBjYWxsZXIgaXMgbm90IHRoZSBzZW5kZXIgb3IgdGhlIHJlY2lwaWVudCBvZiB0aGUgc3RyZWFtLgpUaHJvd3MgaWYgdGhlcmUgaXMgYSB0b2tlbiB0cmFuc2ZlciBmYWlsdXJlLgpAcGFyYW0gc3RyZWFtX2lkIFRoZSBpZCBvZiB0aGUgc3RyZWFtIHRvIGNhbmNlbC4KQHJldHVybiBib29sIHRydWU9c3VjY2Vzcywgb3RoZXJ3aXNlIGZhbHNlLgAAAAAAAA1jYW5jZWxfc3RyZWFtAAAAAAAAAgAAAAAAAAAGY2FsbGVyAAAAAAATAAAAAAAAAAlzdHJlYW1faWQAAAAAAAAEAAAAAA=="
+        ]);
     }
-    return {
-        deposit: (0, convert_js_1.scValToJs)(map.get("deposit")),
-        id: (0, convert_js_1.scValToJs)(map.get("id")),
-        rate_per_second: (0, convert_js_1.scValToJs)(map.get("rate_per_second")),
-        recipient: (0, convert_js_1.scValToJs)(map.get("recipient")),
-        remaining_balance: (0, convert_js_1.scValToJs)(map.get("remaining_balance")),
-        sender: (0, convert_js_1.scValToJs)(map.get("sender")),
-        start_time: (0, convert_js_1.scValToJs)(map.get("start_time")),
-        stop_time: (0, convert_js_1.scValToJs)(map.get("stop_time")),
-        token_address: (0, convert_js_1.scValToJs)(map.get("token_address")),
-        token_decimals: (0, convert_js_1.scValToJs)(map.get("token_decimals")),
-        token_symbol: (0, convert_js_1.scValToJs)(map.get("token_symbol"))
-    };
-}
-function LocalBalanceToXdr(localBalance) {
-    if (!localBalance) {
-        return soroban_client_1.xdr.ScVal.scvVoid();
+    async initialize({ token, start_id }, options = {}) {
+        return await (0, invoke_js_1.invoke)({
+            method: 'initialize',
+            args: this.spec.funcArgsToScVals("initialize", { token, start_id }),
+            ...options,
+            ...this.options,
+            parseResultXdr: () => { },
+        });
     }
-    let arr = [
-        new soroban_client_1.xdr.ScMapEntry({ key: ((i) => soroban_client_1.xdr.ScVal.scvSymbol(i))("recipient_balance"), val: ((i) => (0, convert_js_1.i128ToScVal)(i))(localBalance["recipient_balance"]) }),
-        new soroban_client_1.xdr.ScMapEntry({ key: ((i) => soroban_client_1.xdr.ScVal.scvSymbol(i))("sender_balance"), val: ((i) => (0, convert_js_1.i128ToScVal)(i))(localBalance["sender_balance"]) }),
-        new soroban_client_1.xdr.ScMapEntry({ key: ((i) => soroban_client_1.xdr.ScVal.scvSymbol(i))("withdrawal_amount"), val: ((i) => (0, convert_js_1.i128ToScVal)(i))(localBalance["withdrawal_amount"]) })
-    ];
-    return soroban_client_1.xdr.ScVal.scvMap(arr);
-}
-function LocalBalanceFromXdr(base64Xdr) {
-    let scVal = (0, convert_js_1.strToScVal)(base64Xdr);
-    let obj = scVal.map().map(e => [e.key().str(), e.val()]);
-    let map = new Map(obj);
-    if (!obj) {
-        throw new Error('Invalid XDR');
+    async getStream({ stream_id }, options = {}) {
+        return await (0, invoke_js_1.invoke)({
+            method: 'get_stream',
+            args: this.spec.funcArgsToScVals("get_stream", { stream_id }),
+            ...options,
+            ...this.options,
+            parseResultXdr: (xdr) => {
+                return this.spec.funcResToNative("get_stream", xdr);
+            },
+        });
     }
-    return {
-        recipient_balance: (0, convert_js_1.scValToJs)(map.get("recipient_balance")),
-        sender_balance: (0, convert_js_1.scValToJs)(map.get("sender_balance")),
-        withdrawal_amount: (0, convert_js_1.scValToJs)(map.get("withdrawal_amount"))
-    };
-}
-function CreateStreamToXdr(createStream) {
-    if (!createStream) {
-        return soroban_client_1.xdr.ScVal.scvVoid();
+    async getStreamsByUser({ caller }, options = {}) {
+        return await (0, invoke_js_1.invoke)({
+            method: 'get_streams_by_user',
+            args: this.spec.funcArgsToScVals("get_streams_by_user", { caller }),
+            ...options,
+            ...this.options,
+            parseResultXdr: (xdr) => {
+                return this.spec.funcResToNative("get_streams_by_user", xdr);
+            },
+        });
     }
-    let arr = [
-        new soroban_client_1.xdr.ScMapEntry({ key: ((i) => soroban_client_1.xdr.ScVal.scvSymbol(i))("duration"), val: ((i) => soroban_client_1.xdr.ScVal.scvU64(soroban_client_1.xdr.Uint64.fromString(i.toString())))(createStream["duration"]) }),
-        new soroban_client_1.xdr.ScMapEntry({ key: ((i) => soroban_client_1.xdr.ScVal.scvSymbol(i))("rate_per_second"), val: ((i) => soroban_client_1.xdr.ScVal.scvU64(soroban_client_1.xdr.Uint64.fromString(i.toString())))(createStream["rate_per_second"]) })
-    ];
-    return soroban_client_1.xdr.ScVal.scvMap(arr);
-}
-function CreateStreamFromXdr(base64Xdr) {
-    let scVal = (0, convert_js_1.strToScVal)(base64Xdr);
-    let obj = scVal.map().map(e => [e.key().str(), e.val()]);
-    let map = new Map(obj);
-    if (!obj) {
-        throw new Error('Invalid XDR');
-    }
-    return {
-        duration: (0, convert_js_1.scValToJs)(map.get("duration")),
-        rate_per_second: (0, convert_js_1.scValToJs)(map.get("rate_per_second"))
-    };
-}
-function DataKeyToXdr(dataKey) {
-    if (!dataKey) {
-        return soroban_client_1.xdr.ScVal.scvVoid();
-    }
-    let res = [];
-    switch (dataKey.tag) {
-        case "Token":
-            res.push(((i) => soroban_client_1.xdr.ScVal.scvSymbol(i))("Token"));
-            break;
-        case "NextStreamId":
-            res.push(((i) => soroban_client_1.xdr.ScVal.scvSymbol(i))("NextStreamId"));
-            break;
-        case "Streams":
-            res.push(((i) => soroban_client_1.xdr.ScVal.scvSymbol(i))("Streams"));
-            res.push(((i) => soroban_client_1.xdr.ScVal.scvU32(i))(dataKey.values[0]));
-            break;
-        case "UserStreams":
-            res.push(((i) => soroban_client_1.xdr.ScVal.scvSymbol(i))("UserStreams"));
-            res.push(((i) => (0, convert_js_1.addressToScVal)(i))(dataKey.values[0]));
-            break;
-    }
-    return soroban_client_1.xdr.ScVal.scvVec(res);
-}
-function DataKeyFromXdr(base64Xdr) {
-    let [tag, values] = (0, convert_js_1.strToScVal)(base64Xdr).vec().map(convert_js_1.scValToJs);
-    if (!tag) {
-        throw new Error('Missing enum tag when decoding DataKey from XDR');
-    }
-    return { tag, values };
-}
-async function initialize({ token, start_id }, options = {}) {
-    return await (0, invoke_js_1.invoke)({
-        method: 'initialize',
-        args: [((i) => (0, convert_js_1.addressToScVal)(i))(token),
-            ((i) => soroban_client_1.xdr.ScVal.scvU32(i))(start_id)],
-        ...options,
-        parseResultXdr: () => { },
-    });
-}
-exports.initialize = initialize;
-async function getStream({ stream_id }, options = {}) {
-    return await (0, invoke_js_1.invoke)({
-        method: 'get_stream',
-        args: [((i) => soroban_client_1.xdr.ScVal.scvU32(i))(stream_id)],
-        ...options,
-        parseResultXdr: (xdr) => {
-            return StreamFromXdr(xdr);
-        },
-    });
-}
-exports.getStream = getStream;
-async function getStreamsByUser({ caller }, options = {}) {
-    return await (0, invoke_js_1.invoke)({
-        method: 'get_streams_by_user',
-        args: [((i) => (0, convert_js_1.addressToScVal)(i))(caller)],
-        ...options,
-        parseResultXdr: (xdr) => {
-            return (0, convert_js_1.scValStrToJs)(xdr);
-        },
-    });
-}
-exports.getStreamsByUser = getStreamsByUser;
-/**
+    /**
  * Returns either the delta in seconds between `ledger.timestamp` and `startTime` or between `stopTime` and `startTime, whichever is smaller.
  * If `block.timestamp` is before `startTime`, it returns 0.
  * Panics if the id does not point to a valid stream.
  */
-async function deltaOf({ stream_id }, options = {}) {
-    return await (0, invoke_js_1.invoke)({
-        method: 'delta_of',
-        args: [((i) => soroban_client_1.xdr.ScVal.scvU32(i))(stream_id)],
-        ...options,
-        parseResultXdr: (xdr) => {
-            return (0, convert_js_1.scValStrToJs)(xdr);
-        },
-    });
-}
-exports.deltaOf = deltaOf;
-/**
+    async deltaOf({ stream_id }, options = {}) {
+        return await (0, invoke_js_1.invoke)({
+            method: 'delta_of',
+            args: this.spec.funcArgsToScVals("delta_of", { stream_id }),
+            ...options,
+            ...this.options,
+            parseResultXdr: (xdr) => {
+                return this.spec.funcResToNative("delta_of", xdr);
+            },
+        });
+    }
+    /**
  * Returns the amount of tokens that have already been released to the recipient.
  * Panics if the id does not point to a valid stream.
  * @param stream_id The id of the stream
  * @param who The address of the caller
  * @return The amount of tokens that have already been released
  */
-async function balanceOf({ stream_id, caller }, options = {}) {
-    return await (0, invoke_js_1.invoke)({
-        method: 'balance_of',
-        args: [((i) => soroban_client_1.xdr.ScVal.scvU32(i))(stream_id),
-            ((i) => (0, convert_js_1.addressToScVal)(i))(caller)],
-        ...options,
-        parseResultXdr: (xdr) => {
-            return (0, convert_js_1.scValStrToJs)(xdr);
-        },
-    });
-}
-exports.balanceOf = balanceOf;
-async function createStream({ sender, recipient, amount, token_address, start_time, stop_time }, options = {}) {
-    return await (0, invoke_js_1.invoke)({
-        method: 'create_stream',
-        args: [((i) => (0, convert_js_1.addressToScVal)(i))(sender),
-            ((i) => (0, convert_js_1.addressToScVal)(i))(recipient),
-            ((i) => (0, convert_js_1.i128ToScVal)(i))(amount),
-            ((i) => (0, convert_js_1.addressToScVal)(i))(token_address),
-            ((i) => soroban_client_1.xdr.ScVal.scvU64(soroban_client_1.xdr.Uint64.fromString(i.toString())))(start_time),
-            ((i) => soroban_client_1.xdr.ScVal.scvU64(soroban_client_1.xdr.Uint64.fromString(i.toString())))(stop_time)],
-        ...options,
-        parseResultXdr: (xdr) => {
-            return (0, convert_js_1.scValStrToJs)(xdr);
-        },
-    });
-}
-exports.createStream = createStream;
-async function withdrawFromStream({ recipient, stream_id, amount }, options = {}) {
-    return await (0, invoke_js_1.invoke)({
-        method: 'withdraw_from_stream',
-        args: [((i) => (0, convert_js_1.addressToScVal)(i))(recipient),
-            ((i) => soroban_client_1.xdr.ScVal.scvU32(i))(stream_id),
-            ((i) => (0, convert_js_1.i128ToScVal)(i))(amount)],
-        ...options,
-        parseResultXdr: () => { },
-    });
-}
-exports.withdrawFromStream = withdrawFromStream;
-/**
+    async balanceOf({ stream_id, caller }, options = {}) {
+        return await (0, invoke_js_1.invoke)({
+            method: 'balance_of',
+            args: this.spec.funcArgsToScVals("balance_of", { stream_id, caller }),
+            ...options,
+            ...this.options,
+            parseResultXdr: (xdr) => {
+                return this.spec.funcResToNative("balance_of", xdr);
+            },
+        });
+    }
+    async createStream({ sender, recipient, amount, token_address, start_time, stop_time }, options = {}) {
+        return await (0, invoke_js_1.invoke)({
+            method: 'create_stream',
+            args: this.spec.funcArgsToScVals("create_stream", { sender, recipient, amount, token_address, start_time, stop_time }),
+            ...options,
+            ...this.options,
+            parseResultXdr: (xdr) => {
+                return this.spec.funcResToNative("create_stream", xdr);
+            },
+        });
+    }
+    async withdrawFromStream({ recipient, stream_id, amount }, options = {}) {
+        return await (0, invoke_js_1.invoke)({
+            method: 'withdraw_from_stream',
+            args: this.spec.funcArgsToScVals("withdraw_from_stream", { recipient, stream_id, amount }),
+            ...options,
+            ...this.options,
+            parseResultXdr: () => { },
+        });
+    }
+    /**
  * Cancels the stream and transfers the tokens back on a pro rata basis.
  * Throws if the id does not point to a valid stream.
  * Throws if the caller is not the sender or the recipient of the stream.
@@ -300,14 +201,14 @@ exports.withdrawFromStream = withdrawFromStream;
  * @param stream_id The id of the stream to cancel.
  * @return bool true=success, otherwise false.
  */
-async function cancelStream({ caller, stream_id }, options = {}) {
-    return await (0, invoke_js_1.invoke)({
-        method: 'cancel_stream',
-        args: [((i) => (0, convert_js_1.addressToScVal)(i))(caller),
-            ((i) => soroban_client_1.xdr.ScVal.scvU32(i))(stream_id)],
-        ...options,
-        parseResultXdr: () => { },
-    });
+    async cancelStream({ caller, stream_id }, options = {}) {
+        return await (0, invoke_js_1.invoke)({
+            method: 'cancel_stream',
+            args: this.spec.funcArgsToScVals("cancel_stream", { caller, stream_id }),
+            ...options,
+            ...this.options,
+            parseResultXdr: () => { },
+        });
+    }
 }
-exports.cancelStream = cancelStream;
-const Errors = [];
+exports.Contract = Contract;

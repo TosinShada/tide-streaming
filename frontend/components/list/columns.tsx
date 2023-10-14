@@ -3,7 +3,9 @@ import { ColumnDef } from '@tanstack/react-table'
 import { DataTableColumnHeader } from './data-table-column-header'
 import { DataTableRowActions } from './data-table-row-actions'
 import { format } from 'date-fns'
-import { Stream } from '@tide/stream-contract'
+import {
+  Stream
+} from 'streamdapp-client'
 import { formatAmount, formatTimestamp } from '@/lib/utils'
 import FlowingBalance from '@/components/flowing-balance'
 

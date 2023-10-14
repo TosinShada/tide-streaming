@@ -8,12 +8,24 @@ import {
 import { useToast } from '@/components/ui/use-toast'
 import { useState } from 'react'
 import { useAccount } from '@/hooks'
-import { mint } from '@tide/mock-token'
+import {
+  Contract as tokenContract,
+  networks as tokenNetwork,
+  Address
+} from 'mock-client'
+import freighter from '@stellar/freighter-api'
 
 export function MintToken() {
   const [isLoading, setIsLoading] = useState(false)
   const account = useAccount()
   const { toast } = useToast()
+
+  const tokenClient = new tokenContract({
+    contractId: tokenNetwork.futurenet.contractId,
+    networkPassphrase: tokenNetwork.futurenet.networkPassphrase,
+    rpcUrl: 'https://rpc-futurenet.stellar.org:443',
+    wallet: freighter,
+  })
 
   async function onSubmit() {
     setIsLoading(true)
@@ -30,13 +42,13 @@ export function MintToken() {
     const amount = BigInt(10000000000000)
 
     const mintTokenRequest = {
-      to: account.address,
+      to: Address.fromString(account.address),
       amount: amount,
     }
 
     console.log('mintTokenRequest', mintTokenRequest)
 
-    await mint(mintTokenRequest, {
+    await tokenClient.mint(mintTokenRequest, {
       fee: 100,
       secondsToWait: 20,
       responseType: 'full',

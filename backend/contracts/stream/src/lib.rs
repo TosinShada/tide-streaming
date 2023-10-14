@@ -5,7 +5,8 @@ mod events;
 mod test;
 mod testutils;
 
-pub(crate) const BUMP_AMOUNT: u32 = 518400; // 30 days
+pub(crate) const HIGH_BUMP_AMOUNT: u32 = 518400; // 60 days
+pub(crate) const LOW_BUMP_AMOUNT: u32 = 518400; // 30 days
 pub(crate) const INSTANCE_BUMP_AMOUNT: u32 = 34560; // 2 days
 
 #[derive(Clone, Debug)]
@@ -154,9 +155,11 @@ fn set_stream(e: &Env, stream_id: &u32, stream: &Stream) {
     e.storage()
         .persistent()
         .set(&DataKey::Streams(stream_id.clone()), stream);
-    e.storage()
-        .persistent()
-        .bump(&DataKey::Streams(stream_id.clone()), BUMP_AMOUNT);
+    e.storage().persistent().bump(
+        &DataKey::Streams(stream_id.clone()),
+        LOW_BUMP_AMOUNT,
+        HIGH_BUMP_AMOUNT,
+    );
 }
 
 fn set_stream_by_user(e: &Env, who: &Address, stream: &Stream) {
@@ -166,16 +169,20 @@ fn set_stream_by_user(e: &Env, who: &Address, stream: &Stream) {
     e.storage()
         .persistent()
         .set(&DataKey::UserStreams(who.clone()), &streams);
-    e.storage()
-        .persistent()
-        .bump(&DataKey::UserStreams(who.clone()), BUMP_AMOUNT);
+    e.storage().persistent().bump(
+        &DataKey::UserStreams(who.clone()),
+        LOW_BUMP_AMOUNT,
+        HIGH_BUMP_AMOUNT,
+    );
 }
 
 fn set_next_stream_id(e: &Env, stream_id: &u32) {
     e.storage()
         .instance()
         .set(&DataKey::NextStreamId, &(stream_id + 1));
-    e.storage().instance().bump(INSTANCE_BUMP_AMOUNT);
+    e.storage()
+        .instance()
+        .bump(LOW_BUMP_AMOUNT, HIGH_BUMP_AMOUNT);
 }
 
 fn remove_stream(e: &Env, stream_id: &u32) {
@@ -199,7 +206,9 @@ impl StreamToken {
             .instance()
             .set(&DataKey::NextStreamId, &start_id);
         e.storage().instance().set(&DataKey::Token, &token);
-        e.storage().instance().bump(INSTANCE_BUMP_AMOUNT);
+        e.storage()
+            .instance()
+            .bump(LOW_BUMP_AMOUNT, HIGH_BUMP_AMOUNT);
     }
 
     pub fn get_stream(e: Env, stream_id: u32) -> Stream {
