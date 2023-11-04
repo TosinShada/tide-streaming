@@ -35,7 +35,7 @@ async function getAccount(
   return await server.getAccount(publicKey);
 }
 
-export class NotImplementedError extends Error {}
+export class NotImplementedError extends Error { }
 
 type Simulation = SorobanRpc.SimulateTransactionResponse;
 type SendTx = SorobanRpc.SendTransactionResponse;
@@ -63,12 +63,12 @@ export async function invoke<R extends ResponseTypes = undefined, T = string>(
   args: InvokeArgs<R, T>
 ): Promise<
   R extends undefined
-    ? T
-    : R extends "simulated"
-    ? Simulation
-    : R extends "full"
-    ? SomeRpcResponse
-    : T
+  ? T
+  : R extends "simulated"
+  ? Simulation
+  : R extends "full"
+  ? SomeRpcResponse
+  : T
 >;
 export async function invoke<R extends ResponseTypes, T = string>({
   method,
@@ -106,7 +106,11 @@ export async function invoke<R extends ResponseTypes, T = string>({
     .addOperation(contract.call(method, ...args))
     .setTimeout(SorobanClient.TimeoutInfinite)
     .build();
-  const simulated = await server.simulateTransaction(tx);
+  let simulated = await server.simulateTransaction(tx);
+
+  if (SorobanRpc.isSimulationRestore(simulated)) {
+    simulated = await restoreAndRetry(simulated, walletAccount, tx, wallet, networkPassphrase, fee, server, contract, method, args);
+  }
 
   if (SorobanRpc.isSimulationError(simulated)) {
     throw new Error(simulated.error);
@@ -180,6 +184,50 @@ export async function invoke<R extends ResponseTypes, T = string>({
   return raw;
 }
 
+async function restoreAndRetry(
+  simulated: SorobanRpc.SimulateTransactionRestoreResponse,
+  walletAccount: SorobanClient.Account | null,
+  tx: SorobanClient.Transaction<SorobanClient.Memo<SorobanClient.MemoType>, SorobanClient.Operation[]>,
+  wallet: Wallet,
+  networkPassphrase: string,
+  fee: number,
+  server: SorobanClient.Server,
+  contract: SorobanClient.Contract,
+  method: string,
+  args = [],
+): Promise<SorobanRpc.SimulateTransactionResponse> {
+    if (!walletAccount) {
+      throw new Error("Not connected to Freighter");
+    }
+
+    const restoreTx = new SorobanClient.TransactionBuilder(walletAccount, { fee: fee.toString() })
+      .setNetworkPassphrase(networkPassphrase)
+      .setSorobanData(simulated.restorePreamble.transactionData.build())
+      .addOperation(SorobanClient.Operation.restoreFootprint({}))
+      .build();
+
+    tx = await signTx(
+      wallet,
+      restoreTx,
+      networkPassphrase
+    );
+
+    const resp = await sendTx(tx, 20, server);
+
+    if (resp.status !== SorobanRpc.GetTransactionStatus.SUCCESS) {
+      throw new Error('Failed to restore transaction');
+    }
+    
+    let retryTx = new SorobanClient.TransactionBuilder(walletAccount, {
+      fee: fee.toString(10),
+      networkPassphrase,
+    })
+      .addOperation(contract.call(method, ...args))
+      .setTimeout(SorobanClient.TimeoutInfinite)
+      .build();
+    return await server.simulateTransaction(retryTx);
+}
+
 /**
  * Sign a transaction with Freighter and return the fully-reconstructed
  * transaction ready to send with {@link sendTx}.
@@ -249,8 +297,7 @@ export async function sendTx(
 
   if (getTransactionResponse.status === SorobanRpc.GetTransactionStatus.NOT_FOUND) {
     console.error(
-      `Waited ${
-        secondsToWait
+      `Waited ${secondsToWait
       } seconds for transaction to complete, but it did not. ` +
       `Returning anyway. Check the transaction status manually. ` +
       `Info: ${JSON.stringify(
