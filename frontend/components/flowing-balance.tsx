@@ -5,21 +5,22 @@ import { formatAmount } from '@/lib/utils'
 const ANIMATION_MINIMUM_STEP_TIME = 75
 
 export interface FlowingBalanceProps {
-  remainingBalance: bigint
+  deposit: bigint
   decimal: number
-  flowRate: bigint
   startTime: bigint
+  stopTime: bigint
 }
 
 const FlowingBalance: FC<FlowingBalanceProps> = ({
-  remainingBalance,
+  deposit,
   decimal,
-  flowRate,
   startTime,
+  stopTime,
 }): ReactElement => {
-  const [amount, setAmount] = useState<bigint>(remainingBalance)
+  let totalStreamed = 0n
+  const [amount, setAmount] = useState<bigint>(totalStreamed)
 
-  useEffect(() => setAmount(remainingBalance), [remainingBalance])
+  useEffect(() => setAmount(totalStreamed), [totalStreamed])
 
   //If balance in settings is 0, then show smart flowing balance
   useEffect(() => {
@@ -41,14 +42,16 @@ const FlowingBalance: FC<FlowingBalanceProps> = ({
           return
         }
 
-        const currentAmout =
-          remainingBalance - (currentTimestamp - startTime) * flowRate
-
-        if (currentAmout <= 0) {
-          setAmount(0n)
-        } else {
-          setAmount(currentAmout)
+        if (currentTimestamp > stopTime) {
+          totalStreamed = deposit
+          return
         }
+
+        const streamPercent = ((currentTimestamp - startTime) * 10000000n) / (stopTime - startTime)
+
+        totalStreamed = (deposit * streamPercent) / 10000000n
+
+        setAmount(totalStreamed)
 
         lastAnimationTimestamp = currentAnimationTimestamp
       }
@@ -62,7 +65,7 @@ const FlowingBalance: FC<FlowingBalanceProps> = ({
       stopAnimation = true
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [remainingBalance, startTime, flowRate])
+  }, [deposit, startTime, stopTime])
 
   return <Fragment>{formatAmount(amount, decimal)}</Fragment>
 }

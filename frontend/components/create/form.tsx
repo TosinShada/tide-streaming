@@ -123,21 +123,26 @@ export function CreateStreamForm() {
     }
 
     // Get the flow rate with decimals
-    const from = moment(date?.from)
-    const to = moment(date?.to)
+    let from = moment(date?.from).unix()
+    const to = moment(date?.to).unix()
     const amount = BigInt(data.amount * 10 ** 7)
+
+    // Handle when the current day is selected
+    var currentTimestamp = moment().unix();
+    if (from < currentTimestamp) {
+      from = currentTimestamp + 30
+    }
 
     const createStreamRequest = {
       sender: Address.fromString(account.address),
       recipient: Address.fromString(data.recipient),
       amount: amount,
       token_address: Address.fromString(data.tokenAddress),
-      start_time: BigInt(from.unix()),
-      stop_time: BigInt(to.unix()),
+      start_time: BigInt(from),
+      stop_time: BigInt(to),
     }
 
-    console.log('data.tokenAddress', tokenNetwork.futurenet.contractId)
-    console.log('createStreamRequest', createStreamRequest)
+    // console.log('createStreamRequest', createStreamRequest)
 
     await streamClient.createStream(createStreamRequest, {
       fee: 1000,
@@ -145,7 +150,7 @@ export function CreateStreamForm() {
       responseType: 'full',
     })
       .then((result: any) => {
-        console.log('result', result)
+        // console.log('result', result)
         toast({
           variant: 'default',
           title: 'Success!',
@@ -157,7 +162,7 @@ export function CreateStreamForm() {
         toast({
           variant: 'destructive',
           title: 'Uh oh! Something went wrong.',
-          description: `${error}`,
+          description: 'Please check your parameters and try again.',
         })
       })
       .finally(() => {
@@ -252,7 +257,7 @@ export function CreateStreamForm() {
                         defaultMonth={date?.from}
                         selected={date}
                         onSelect={setDate}
-                        disabled={date => date < new Date()}
+                        // disabled={date => date < new Date()}
                         numberOfMonths={2}
                       />
                     </PopoverContent>
