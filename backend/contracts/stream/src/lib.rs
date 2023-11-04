@@ -1,13 +1,17 @@
 #![no_std]
-use soroban_sdk::{contract, contractimpl, contracttype, token, Address, Env, String, Vec};
+use fixed_point_math::{FixedPoint, STROOP};
+use soroban_sdk::{contract, contractimpl, contracttype, log, token, Address, Env, String, Vec};
 
 mod events;
 mod test;
 mod testutils;
 
-pub(crate) const HIGH_BUMP_AMOUNT: u32 = 518400; // 60 days
-pub(crate) const LOW_BUMP_AMOUNT: u32 = 518400; // 30 days
-pub(crate) const INSTANCE_BUMP_AMOUNT: u32 = 34560; // 2 days
+pub(crate) const DAY_IN_LEDGERS: u32 = 17280;
+pub(crate) const INSTANCE_BUMP_AMOUNT: u32 = 7 * DAY_IN_LEDGERS;
+pub(crate) const INSTANCE_LIFETIME_THRESHOLD: u32 = INSTANCE_BUMP_AMOUNT - DAY_IN_LEDGERS;
+
+pub(crate) const PERSISTENT_BUMP_AMOUNT: u32 = 30 * DAY_IN_LEDGERS;
+pub(crate) const PERSISTENT_LIFETIME_THRESHOLD: u32 = PERSISTENT_BUMP_AMOUNT - DAY_IN_LEDGERS;
 
 #[derive(Clone, Debug)]
 #[contracttype]
@@ -18,24 +22,11 @@ pub struct Stream {
     pub start_time: u64,
     pub stop_time: u64,
     pub deposit: i128,
-    pub rate_per_second: u64,
-    pub remaining_balance: i128,
+    pub withdrawn: i128,
+    pub is_cancelled: bool,
     pub token_address: Address,
     pub token_symbol: String,
     pub token_decimals: u32,
-}
-
-#[contracttype]
-pub struct LocalBalance {
-    pub recipient_balance: i128,
-    pub withdrawal_amount: i128,
-    pub sender_balance: i128,
-}
-
-#[contracttype]
-pub struct CreateStream {
-    pub duration: u64,
-    pub rate_per_second: u64,
 }
 
 #[derive(Clone)]
@@ -82,47 +73,31 @@ fn get_token(e: &Env) -> Address {
         .expect("not initialized")
 }
 
-fn get_delta_of(start_time: &u64, stop_time: &u64, current_ledger_time: &u64) -> u64 {
-    if current_ledger_time < start_time {
-        return 0;
-    }
-    if current_ledger_time >= stop_time {
-        return stop_time - start_time;
-    }
-    return current_ledger_time - start_time;
-}
-
-fn get_balance_of(e: &Env, caller: &Address, stream: &Stream) -> i128 {
-    let start_time = stream.start_time;
-    let stop_time = stream.stop_time;
+fn get_streamed_amount(e: &Env, stream: &Stream) -> i128 {
     let current_ledger_time = get_ledger_timestamp(&e);
-    let delta = get_delta_of(&start_time, &stop_time, &current_ledger_time);
 
-    let mut local_balance = LocalBalance {
-        recipient_balance: 0,
-        withdrawal_amount: 0,
-        sender_balance: 0,
-    };
-    local_balance.recipient_balance = (delta * stream.rate_per_second) as i128;
-
-    // If the stream `balance` does not equal `deposit`, it means there have been withdrawals.
-    // We have to subtract the total amount withdrawn from the amount of money that has been streamed until now.
-    if stream.deposit > stream.remaining_balance {
-        local_balance.withdrawal_amount = stream.deposit - stream.remaining_balance;
-        check_nonnegative_amount(local_balance.withdrawal_amount);
-        local_balance.recipient_balance =
-            local_balance.recipient_balance - local_balance.withdrawal_amount;
-        check_nonnegative_amount(local_balance.recipient_balance);
+    // if we have gotten to the end time return the total deposited amount
+    if current_ledger_time >= stream.stop_time {
+        return stream.deposit;
     }
 
-    if caller.clone() == stream.recipient {
-        local_balance.recipient_balance
-    } else if caller.clone() == stream.sender {
-        local_balance.sender_balance = stream.remaining_balance - local_balance.recipient_balance;
-        check_nonnegative_amount(local_balance.sender_balance);
-        local_balance.sender_balance
+    let start_time = stream.start_time as i128;
+    let elapsed_time = (current_ledger_time as i128 - start_time) as i128;
+    let total_time = (stream.stop_time as i128 - start_time) as i128;
+
+    let elapsed_time_percent = elapsed_time
+        .fixed_div_floor(total_time, STROOP as i128)
+        .unwrap();
+
+    let streamed_amount = stream
+        .deposit
+        .fixed_mul_floor(elapsed_time_percent, STROOP as i128)
+        .unwrap();
+
+    if streamed_amount > stream.deposit {
+        stream.deposit
     } else {
-        0
+        streamed_amount
     }
 }
 
@@ -138,10 +113,12 @@ fn require_sender_or_recipient(stream: &Stream, user: &Address) {
     );
 }
 
-fn check_nonnegative_amount(amount: i128) {
-    if amount < 0 {
-        panic!("negative amount is not allowed: {}", amount)
-    }
+fn require_recipient(stream: &Stream, user: &Address) {
+    let recipient = &(stream.recipient);
+    assert!(
+        user == recipient,
+        "only recipient can receive the streamed amount"
+    );
 }
 
 // Transfer tokens from the contract to the recipient
@@ -157,8 +134,8 @@ fn set_stream(e: &Env, stream_id: &u32, stream: &Stream) {
         .set(&DataKey::Streams(stream_id.clone()), stream);
     e.storage().persistent().bump(
         &DataKey::Streams(stream_id.clone()),
-        LOW_BUMP_AMOUNT,
-        HIGH_BUMP_AMOUNT,
+        PERSISTENT_LIFETIME_THRESHOLD,
+        PERSISTENT_BUMP_AMOUNT,
     );
 }
 
@@ -171,8 +148,8 @@ fn set_stream_by_user(e: &Env, who: &Address, stream: &Stream) {
         .set(&DataKey::UserStreams(who.clone()), &streams);
     e.storage().persistent().bump(
         &DataKey::UserStreams(who.clone()),
-        LOW_BUMP_AMOUNT,
-        HIGH_BUMP_AMOUNT,
+        PERSISTENT_LIFETIME_THRESHOLD,
+        PERSISTENT_BUMP_AMOUNT,
     );
 }
 
@@ -182,13 +159,7 @@ fn set_next_stream_id(e: &Env, stream_id: &u32) {
         .set(&DataKey::NextStreamId, &(stream_id + 1));
     e.storage()
         .instance()
-        .bump(LOW_BUMP_AMOUNT, HIGH_BUMP_AMOUNT);
-}
-
-fn remove_stream(e: &Env, stream_id: &u32) {
-    e.storage()
-        .persistent()
-        .remove(&DataKey::Streams(stream_id.clone()));
+        .bump(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
 }
 
 #[contract]
@@ -197,18 +168,20 @@ struct StreamToken;
 #[contractimpl]
 #[allow(clippy::needless_pass_by_value)]
 impl StreamToken {
-    pub fn initialize(e: Env, token: Address, start_id: u32) {
+    pub fn initialize(e: Env, token: Address) {
         assert!(
             !e.storage().instance().has(&DataKey::NextStreamId),
             "already initialized"
         );
+
+        let initial_stream_id: u32 = 1;
         e.storage()
             .instance()
-            .set(&DataKey::NextStreamId, &start_id);
+            .set(&DataKey::NextStreamId, &initial_stream_id);
         e.storage().instance().set(&DataKey::Token, &token);
         e.storage()
             .instance()
-            .bump(LOW_BUMP_AMOUNT, HIGH_BUMP_AMOUNT);
+            .bump(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
     }
 
     pub fn get_stream(e: Env, stream_id: u32) -> Stream {
@@ -219,27 +192,15 @@ impl StreamToken {
         get_streams_by_user(&e, &caller)
     }
 
-    /// Returns either the delta in seconds between `ledger.timestamp` and `startTime` or between `stopTime` and `startTime, whichever is smaller.
-    /// If `block.timestamp` is before `startTime`, it returns 0.
-    /// Panics if the id does not point to a valid stream.
-    pub fn delta_of(e: Env, stream_id: u32) -> u64 {
-        let stream = get_stream(&e, &stream_id);
-        let start_time = stream.start_time;
-        let stop_time = stream.stop_time;
-        let current_ledger_time = get_ledger_timestamp(&e);
-
-        get_delta_of(&start_time, &stop_time, &current_ledger_time)
-    }
-
     /// Returns the amount of tokens that have already been released to the recipient.
     /// Panics if the id does not point to a valid stream.
     /// @param stream_id The id of the stream
     /// @param who The address of the caller
     /// @return The amount of tokens that have already been released
-    pub fn balance_of(e: Env, stream_id: u32, caller: Address) -> i128 {
+    pub fn streamed_amount(e: Env, stream_id: u32) -> i128 {
         let stream = get_stream(&e, &stream_id);
 
-        get_balance_of(&e, &caller, &stream)
+        get_streamed_amount(&e, &stream)
     }
 
     // convert the above solidity function to soroban
@@ -257,33 +218,17 @@ impl StreamToken {
             recipient != e.current_contract_address(),
             "stream to the contract itself"
         );
-        assert!(recipient != sender, "stream to the caller");
+        assert!(recipient != sender, "self streaming not allowed");
         assert!(amount > 0, "amount is zero or negative");
         assert!(
             start_time >= get_ledger_timestamp(&e),
-            "start time before ledger.timestamp"
+            "start time before current ledger timestamp"
         );
         assert!(stop_time > start_time, "stop time before the start time");
 
-        let mut create_stream = CreateStream {
-            duration: 0,
-            rate_per_second: 0,
-        };
-
-        create_stream.duration = stop_time - start_time;
-        assert!(
-            amount >= create_stream.duration as i128,
-            "amount smaller than time delta"
-        );
-        assert!(
-            amount % create_stream.duration as i128 == 0,
-            "amount not multiple of time delta"
-        );
-
-        create_stream.rate_per_second = amount as u64 / create_stream.duration;
-
         let stream_id = get_next_stream_id(&e);
 
+        log!(&e, "create_stream_log");
         let token_contract_id = get_token(&e);
         let client = token::Client::new(&e, &token_contract_id);
         client.transfer(&sender, &e.current_contract_address(), &amount);
@@ -298,8 +243,8 @@ impl StreamToken {
             start_time: start_time,
             stop_time: stop_time,
             deposit: amount,
-            rate_per_second: create_stream.rate_per_second,
-            remaining_balance: amount,
+            is_cancelled: false,
+            withdrawn: 0,
             token_address: token_address.clone(),
             token_symbol: token_symbol.clone(),
             token_decimals: token_decimals.clone(),
@@ -325,8 +270,14 @@ impl StreamToken {
         stream_id
     }
 
-    pub fn withdraw_from_stream(e: Env, recipient: Address, stream_id: u32, amount: i128) {
-        recipient.require_auth();
+    pub fn withdraw_from_stream(
+        e: Env,
+        caller: Address,
+        recipient: Address,
+        stream_id: u32,
+        amount: i128,
+    ) {
+        caller.require_auth();
         assert!(amount > 0, "amount is zero or negative");
         assert!(
             recipient != e.current_contract_address(),
@@ -334,18 +285,18 @@ impl StreamToken {
         );
 
         let mut stream = get_stream(&e, &stream_id);
-        require_sender_or_recipient(&stream, &recipient);
+        require_sender_or_recipient(&stream, &caller);
+        require_recipient(&stream, &recipient);
 
-        let balance = get_balance_of(&e, &recipient, &stream);
-        assert!(balance >= amount, "amount exceeds the available balance");
+        let streamed_amount = get_streamed_amount(&e, &stream);
+        assert!(
+            amount >= streamed_amount,
+            "amount exceeds the streamed amount"
+        );
 
-        stream.remaining_balance = stream.remaining_balance - amount;
+        stream.withdrawn = stream.withdrawn + amount;
 
-        if stream.remaining_balance == 0 {
-            remove_stream(&e, &stream_id);
-        } else {
-            set_stream(&e, &stream_id, &stream);
-        }
+        set_stream(&e, &stream_id, &stream);
 
         transfer(&e, &recipient, &amount);
 
@@ -360,13 +311,16 @@ impl StreamToken {
     /// @return bool true=success, otherwise false.
     pub fn cancel_stream(e: Env, caller: Address, stream_id: u32) {
         caller.require_auth();
-        let stream = get_stream(&e, &stream_id);
+        let mut stream = get_stream(&e, &stream_id);
         require_sender_or_recipient(&stream, &caller);
 
-        let sender_balance = get_balance_of(&e, &stream.sender, &stream);
-        let recipient_balance = get_balance_of(&e, &stream.recipient, &stream);
+        let streamed_amount = get_streamed_amount(&e, &stream);
+        let recipient_balance = streamed_amount - stream.withdrawn;
+        let sender_balance = stream.deposit - streamed_amount;
 
-        remove_stream(&e, &stream_id);
+        stream.is_cancelled = true;
+
+        set_stream(&e, &stream_id, &stream);
 
         if recipient_balance > 0 {
             transfer(&e, &stream.recipient, &recipient_balance);

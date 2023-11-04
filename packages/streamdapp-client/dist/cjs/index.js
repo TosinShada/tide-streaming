@@ -84,7 +84,7 @@ function parseError(message) {
 exports.networks = {
     futurenet: {
         networkPassphrase: "Test SDF Future Network ; October 2022",
-        contractId: "CDSQFWPHBASD2BBQTQJS4KIMBMFTR63YEPIBIFSACVVNIMFI3IQT36O4",
+        contractId: "CAGNADVAEZ4UV3AFMWR6D2E2SLJXUIBSLTMZAOTITESOQBO5S3ZDTNPE",
     }
 };
 const Errors = {};
@@ -94,24 +94,21 @@ class Contract {
     constructor(options) {
         this.options = options;
         this.spec = new soroban_client_1.ContractSpec([
-            "AAAAAQAAAAAAAAAAAAAABlN0cmVhbQAAAAAACwAAAAAAAAAHZGVwb3NpdAAAAAALAAAAAAAAAAJpZAAAAAAABAAAAAAAAAAPcmF0ZV9wZXJfc2Vjb25kAAAAAAYAAAAAAAAACXJlY2lwaWVudAAAAAAAABMAAAAAAAAAEXJlbWFpbmluZ19iYWxhbmNlAAAAAAAACwAAAAAAAAAGc2VuZGVyAAAAAAATAAAAAAAAAApzdGFydF90aW1lAAAAAAAGAAAAAAAAAAlzdG9wX3RpbWUAAAAAAAAGAAAAAAAAAA10b2tlbl9hZGRyZXNzAAAAAAAAEwAAAAAAAAAOdG9rZW5fZGVjaW1hbHMAAAAAAAQAAAAAAAAADHRva2VuX3N5bWJvbAAAABA=",
-            "AAAAAQAAAAAAAAAAAAAADExvY2FsQmFsYW5jZQAAAAMAAAAAAAAAEXJlY2lwaWVudF9iYWxhbmNlAAAAAAAACwAAAAAAAAAOc2VuZGVyX2JhbGFuY2UAAAAAAAsAAAAAAAAAEXdpdGhkcmF3YWxfYW1vdW50AAAAAAAACw==",
-            "AAAAAQAAAAAAAAAAAAAADENyZWF0ZVN0cmVhbQAAAAIAAAAAAAAACGR1cmF0aW9uAAAABgAAAAAAAAAPcmF0ZV9wZXJfc2Vjb25kAAAAAAY=",
+            "AAAAAQAAAAAAAAAAAAAABlN0cmVhbQAAAAAACwAAAAAAAAAHZGVwb3NpdAAAAAALAAAAAAAAAAJpZAAAAAAABAAAAAAAAAAMaXNfY2FuY2VsbGVkAAAAAQAAAAAAAAAJcmVjaXBpZW50AAAAAAAAEwAAAAAAAAAGc2VuZGVyAAAAAAATAAAAAAAAAApzdGFydF90aW1lAAAAAAAGAAAAAAAAAAlzdG9wX3RpbWUAAAAAAAAGAAAAAAAAAA10b2tlbl9hZGRyZXNzAAAAAAAAEwAAAAAAAAAOdG9rZW5fZGVjaW1hbHMAAAAAAAQAAAAAAAAADHRva2VuX3N5bWJvbAAAABAAAAAAAAAACXdpdGhkcmF3bgAAAAAAAAs=",
             "AAAAAgAAAAAAAAAAAAAAB0RhdGFLZXkAAAAABAAAAAAAAAAAAAAABVRva2VuAAAAAAAAAAAAAAAAAAAMTmV4dFN0cmVhbUlkAAAAAQAAAAAAAAAHU3RyZWFtcwAAAAABAAAABAAAAAEAAAAAAAAAC1VzZXJTdHJlYW1zAAAAAAEAAAAT",
-            "AAAAAAAAAAAAAAAKaW5pdGlhbGl6ZQAAAAAAAgAAAAAAAAAFdG9rZW4AAAAAAAATAAAAAAAAAAhzdGFydF9pZAAAAAQAAAAA",
+            "AAAAAAAAAAAAAAAKaW5pdGlhbGl6ZQAAAAAAAQAAAAAAAAAFdG9rZW4AAAAAAAATAAAAAA==",
             "AAAAAAAAAAAAAAAKZ2V0X3N0cmVhbQAAAAAAAQAAAAAAAAAJc3RyZWFtX2lkAAAAAAAABAAAAAEAAAfQAAAABlN0cmVhbQAA",
             "AAAAAAAAAAAAAAATZ2V0X3N0cmVhbXNfYnlfdXNlcgAAAAABAAAAAAAAAAZjYWxsZXIAAAAAABMAAAABAAAD6gAAB9AAAAAGU3RyZWFtAAA=",
-            "AAAAAAAAAPdSZXR1cm5zIGVpdGhlciB0aGUgZGVsdGEgaW4gc2Vjb25kcyBiZXR3ZWVuIGBsZWRnZXIudGltZXN0YW1wYCBhbmQgYHN0YXJ0VGltZWAgb3IgYmV0d2VlbiBgc3RvcFRpbWVgIGFuZCBgc3RhcnRUaW1lLCB3aGljaGV2ZXIgaXMgc21hbGxlci4KSWYgYGJsb2NrLnRpbWVzdGFtcGAgaXMgYmVmb3JlIGBzdGFydFRpbWVgLCBpdCByZXR1cm5zIDAuClBhbmljcyBpZiB0aGUgaWQgZG9lcyBub3QgcG9pbnQgdG8gYSB2YWxpZCBzdHJlYW0uAAAAAAhkZWx0YV9vZgAAAAEAAAAAAAAACXN0cmVhbV9pZAAAAAAAAAQAAAABAAAABg==",
-            "AAAAAAAAAQlSZXR1cm5zIHRoZSBhbW91bnQgb2YgdG9rZW5zIHRoYXQgaGF2ZSBhbHJlYWR5IGJlZW4gcmVsZWFzZWQgdG8gdGhlIHJlY2lwaWVudC4KUGFuaWNzIGlmIHRoZSBpZCBkb2VzIG5vdCBwb2ludCB0byBhIHZhbGlkIHN0cmVhbS4KQHBhcmFtIHN0cmVhbV9pZCBUaGUgaWQgb2YgdGhlIHN0cmVhbQpAcGFyYW0gd2hvIFRoZSBhZGRyZXNzIG9mIHRoZSBjYWxsZXIKQHJldHVybiBUaGUgYW1vdW50IG9mIHRva2VucyB0aGF0IGhhdmUgYWxyZWFkeSBiZWVuIHJlbGVhc2VkAAAAAAAACmJhbGFuY2Vfb2YAAAAAAAIAAAAAAAAACXN0cmVhbV9pZAAAAAAAAAQAAAAAAAAABmNhbGxlcgAAAAAAEwAAAAEAAAAL",
+            "AAAAAAAAAQlSZXR1cm5zIHRoZSBhbW91bnQgb2YgdG9rZW5zIHRoYXQgaGF2ZSBhbHJlYWR5IGJlZW4gcmVsZWFzZWQgdG8gdGhlIHJlY2lwaWVudC4KUGFuaWNzIGlmIHRoZSBpZCBkb2VzIG5vdCBwb2ludCB0byBhIHZhbGlkIHN0cmVhbS4KQHBhcmFtIHN0cmVhbV9pZCBUaGUgaWQgb2YgdGhlIHN0cmVhbQpAcGFyYW0gd2hvIFRoZSBhZGRyZXNzIG9mIHRoZSBjYWxsZXIKQHJldHVybiBUaGUgYW1vdW50IG9mIHRva2VucyB0aGF0IGhhdmUgYWxyZWFkeSBiZWVuIHJlbGVhc2VkAAAAAAAAD3N0cmVhbWVkX2Ftb3VudAAAAAABAAAAAAAAAAlzdHJlYW1faWQAAAAAAAAEAAAAAQAAAAs=",
             "AAAAAAAAAAAAAAANY3JlYXRlX3N0cmVhbQAAAAAAAAYAAAAAAAAABnNlbmRlcgAAAAAAEwAAAAAAAAAJcmVjaXBpZW50AAAAAAAAEwAAAAAAAAAGYW1vdW50AAAAAAALAAAAAAAAAA10b2tlbl9hZGRyZXNzAAAAAAAAEwAAAAAAAAAKc3RhcnRfdGltZQAAAAAABgAAAAAAAAAJc3RvcF90aW1lAAAAAAAABgAAAAEAAAAE",
-            "AAAAAAAAAAAAAAAUd2l0aGRyYXdfZnJvbV9zdHJlYW0AAAADAAAAAAAAAAlyZWNpcGllbnQAAAAAAAATAAAAAAAAAAlzdHJlYW1faWQAAAAAAAAEAAAAAAAAAAZhbW91bnQAAAAAAAsAAAAA",
+            "AAAAAAAAAAAAAAAUd2l0aGRyYXdfZnJvbV9zdHJlYW0AAAAEAAAAAAAAAAZjYWxsZXIAAAAAABMAAAAAAAAACXJlY2lwaWVudAAAAAAAABMAAAAAAAAACXN0cmVhbV9pZAAAAAAAAAQAAAAAAAAABmFtb3VudAAAAAAACwAAAAA=",
             "AAAAAAAAAUlDYW5jZWxzIHRoZSBzdHJlYW0gYW5kIHRyYW5zZmVycyB0aGUgdG9rZW5zIGJhY2sgb24gYSBwcm8gcmF0YSBiYXNpcy4KVGhyb3dzIGlmIHRoZSBpZCBkb2VzIG5vdCBwb2ludCB0byBhIHZhbGlkIHN0cmVhbS4KVGhyb3dzIGlmIHRoZSBjYWxsZXIgaXMgbm90IHRoZSBzZW5kZXIgb3IgdGhlIHJlY2lwaWVudCBvZiB0aGUgc3RyZWFtLgpUaHJvd3MgaWYgdGhlcmUgaXMgYSB0b2tlbiB0cmFuc2ZlciBmYWlsdXJlLgpAcGFyYW0gc3RyZWFtX2lkIFRoZSBpZCBvZiB0aGUgc3RyZWFtIHRvIGNhbmNlbC4KQHJldHVybiBib29sIHRydWU9c3VjY2Vzcywgb3RoZXJ3aXNlIGZhbHNlLgAAAAAAAA1jYW5jZWxfc3RyZWFtAAAAAAAAAgAAAAAAAAAGY2FsbGVyAAAAAAATAAAAAAAAAAlzdHJlYW1faWQAAAAAAAAEAAAAAA=="
         ]);
     }
-    async initialize({ token, start_id }, options = {}) {
+    async initialize({ token }, options = {}) {
         return await (0, invoke_js_1.invoke)({
             method: 'initialize',
-            args: this.spec.funcArgsToScVals("initialize", { token, start_id }),
+            args: this.spec.funcArgsToScVals("initialize", { token }),
             ...options,
             ...this.options,
             parseResultXdr: () => { },
@@ -140,36 +137,20 @@ class Contract {
         });
     }
     /**
- * Returns either the delta in seconds between `ledger.timestamp` and `startTime` or between `stopTime` and `startTime, whichever is smaller.
- * If `block.timestamp` is before `startTime`, it returns 0.
- * Panics if the id does not point to a valid stream.
- */
-    async deltaOf({ stream_id }, options = {}) {
-        return await (0, invoke_js_1.invoke)({
-            method: 'delta_of',
-            args: this.spec.funcArgsToScVals("delta_of", { stream_id }),
-            ...options,
-            ...this.options,
-            parseResultXdr: (xdr) => {
-                return this.spec.funcResToNative("delta_of", xdr);
-            },
-        });
-    }
-    /**
  * Returns the amount of tokens that have already been released to the recipient.
  * Panics if the id does not point to a valid stream.
  * @param stream_id The id of the stream
  * @param who The address of the caller
  * @return The amount of tokens that have already been released
  */
-    async balanceOf({ stream_id, caller }, options = {}) {
+    async streamedAmount({ stream_id }, options = {}) {
         return await (0, invoke_js_1.invoke)({
-            method: 'balance_of',
-            args: this.spec.funcArgsToScVals("balance_of", { stream_id, caller }),
+            method: 'streamed_amount',
+            args: this.spec.funcArgsToScVals("streamed_amount", { stream_id }),
             ...options,
             ...this.options,
             parseResultXdr: (xdr) => {
-                return this.spec.funcResToNative("balance_of", xdr);
+                return this.spec.funcResToNative("streamed_amount", xdr);
             },
         });
     }
@@ -184,10 +165,10 @@ class Contract {
             },
         });
     }
-    async withdrawFromStream({ recipient, stream_id, amount }, options = {}) {
+    async withdrawFromStream({ caller, recipient, stream_id, amount }, options = {}) {
         return await (0, invoke_js_1.invoke)({
             method: 'withdraw_from_stream',
-            args: this.spec.funcArgsToScVals("withdraw_from_stream", { recipient, stream_id, amount }),
+            args: this.spec.funcArgsToScVals("withdraw_from_stream", { caller, recipient, stream_id, amount }),
             ...options,
             ...this.options,
             parseResultXdr: () => { },

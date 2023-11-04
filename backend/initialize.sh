@@ -116,6 +116,5 @@ soroban contract invoke \
   --id "$STREAMDAPP_ID" \
   -- \
   initialize \
-  --token "$MOCK_TOKEN_ID" \
-  --start_id "10000" 
+  --token "$MOCK_TOKEN_ID"
 echo "Done"

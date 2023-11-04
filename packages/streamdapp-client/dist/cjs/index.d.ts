@@ -43,30 +43,21 @@ export declare class Err<E extends Error_ = Error_> implements Result<any, E> {
 export declare const networks: {
     readonly futurenet: {
         readonly networkPassphrase: "Test SDF Future Network ; October 2022";
-        readonly contractId: "CDSQFWPHBASD2BBQTQJS4KIMBMFTR63YEPIBIFSACVVNIMFI3IQT36O4";
+        readonly contractId: "CAGNADVAEZ4UV3AFMWR6D2E2SLJXUIBSLTMZAOTITESOQBO5S3ZDTNPE";
     };
 };
 export interface Stream {
     deposit: i128;
     id: u32;
-    rate_per_second: u64;
+    is_cancelled: boolean;
     recipient: Address;
-    remaining_balance: i128;
     sender: Address;
     start_time: u64;
     stop_time: u64;
     token_address: Address;
     token_decimals: u32;
     token_symbol: string;
-}
-export interface LocalBalance {
-    recipient_balance: i128;
-    sender_balance: i128;
-    withdrawal_amount: i128;
-}
-export interface CreateStream {
-    duration: u64;
-    rate_per_second: u64;
+    withdrawn: i128;
 }
 export type DataKey = {
     tag: "Token";
@@ -85,9 +76,8 @@ export declare class Contract {
     readonly options: ClassOptions;
     spec: ContractSpec;
     constructor(options: ClassOptions);
-    initialize<R extends ResponseTypes = undefined>({ token, start_id }: {
+    initialize<R extends ResponseTypes = undefined>({ token }: {
         token: Address;
-        start_id: u32;
     }, options?: {
         /**
          * The fee to pay for the transaction. Default: 100.
@@ -147,40 +137,14 @@ export declare class Contract {
         secondsToWait?: number;
     }): Promise<R extends undefined ? Stream[] : R extends "simulated" ? SorobanClient.SorobanRpc.SimulateTransactionResponse : R extends "full" ? SorobanClient.SorobanRpc.SimulateTransactionResponse | SorobanClient.SorobanRpc.SendTransactionResponse | SorobanClient.SorobanRpc.GetTransactionResponse : Stream[]>;
     /**
- * Returns either the delta in seconds between `ledger.timestamp` and `startTime` or between `stopTime` and `startTime, whichever is smaller.
- * If `block.timestamp` is before `startTime`, it returns 0.
- * Panics if the id does not point to a valid stream.
- */
-    deltaOf<R extends ResponseTypes = undefined>({ stream_id }: {
-        stream_id: u32;
-    }, options?: {
-        /**
-         * The fee to pay for the transaction. Default: 100.
-         */
-        fee?: number;
-        /**
-         * What type of response to return.
-         *
-         *   - `undefined`, the default, parses the returned XDR as `u64`. Runs preflight, checks to see if auth/signing is required, and sends the transaction if so. If there's no error and `secondsToWait` is positive, awaits the finalized transaction.
-         *   - `'simulated'` will only simulate/preflight the transaction, even if it's a change/set method that requires auth/signing. Returns full preflight info.
-         *   - `'full'` return the full RPC response, meaning either 1. the preflight info, if it's a view/read method that doesn't require auth/signing, or 2. the `sendTransaction` response, if there's a problem with sending the transaction or if you set `secondsToWait` to 0, or 3. the `getTransaction` response, if it's a change method with no `sendTransaction` errors and a positive `secondsToWait`.
-         */
-        responseType?: R;
-        /**
-         * If the simulation shows that this invocation requires auth/signing, `invoke` will wait `secondsToWait` seconds for the transaction to complete before giving up and returning the incomplete {@link SorobanClient.SorobanRpc.GetTransactionResponse} results (or attempting to parse their probably-missing XDR with `parseResultXdr`, depending on `responseType`). Set this to `0` to skip waiting altogether, which will return you {@link SorobanClient.SorobanRpc.SendTransactionResponse} more quickly, before the transaction has time to be included in the ledger. Default: 10.
-         */
-        secondsToWait?: number;
-    }): Promise<R extends undefined ? bigint : R extends "simulated" ? SorobanClient.SorobanRpc.SimulateTransactionResponse : R extends "full" ? SorobanClient.SorobanRpc.SimulateTransactionResponse | SorobanClient.SorobanRpc.SendTransactionResponse | SorobanClient.SorobanRpc.GetTransactionResponse : bigint>;
-    /**
  * Returns the amount of tokens that have already been released to the recipient.
  * Panics if the id does not point to a valid stream.
  * @param stream_id The id of the stream
  * @param who The address of the caller
  * @return The amount of tokens that have already been released
  */
-    balanceOf<R extends ResponseTypes = undefined>({ stream_id, caller }: {
+    streamedAmount<R extends ResponseTypes = undefined>({ stream_id }: {
         stream_id: u32;
-        caller: Address;
     }, options?: {
         /**
          * The fee to pay for the transaction. Default: 100.
@@ -224,7 +188,8 @@ export declare class Contract {
          */
         secondsToWait?: number;
     }): Promise<R extends undefined ? number : R extends "simulated" ? SorobanClient.SorobanRpc.SimulateTransactionResponse : R extends "full" ? SorobanClient.SorobanRpc.SimulateTransactionResponse | SorobanClient.SorobanRpc.SendTransactionResponse | SorobanClient.SorobanRpc.GetTransactionResponse : number>;
-    withdrawFromStream<R extends ResponseTypes = undefined>({ recipient, stream_id, amount }: {
+    withdrawFromStream<R extends ResponseTypes = undefined>({ caller, recipient, stream_id, amount }: {
+        caller: Address;
         recipient: Address;
         stream_id: u32;
         amount: i128;
