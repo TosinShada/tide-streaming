@@ -1,6 +1,6 @@
 #![no_std]
-use soroban_sdk::{contract, contractimpl, contracttype, token, Address, Env, String, Vec, log};
 use fixed_point_math::{FixedPoint, STROOP};
+use soroban_sdk::{contract, contractimpl, contracttype, log, token, Address, Env, String, Vec};
 
 mod events;
 mod test;
@@ -78,16 +78,21 @@ fn get_streamed_amount(e: &Env, stream: &Stream) -> i128 {
 
     // if we have gotten to the end time return the total deposited amount
     if current_ledger_time >= stream.stop_time {
-        return stream.deposit
+        return stream.deposit;
     }
 
     let start_time = stream.start_time as i128;
     let elapsed_time = (current_ledger_time as i128 - start_time) as i128;
     let total_time = (stream.stop_time as i128 - start_time) as i128;
 
-    let elapsed_time_percent = elapsed_time.fixed_div_floor(total_time, STROOP as i128).unwrap();
+    let elapsed_time_percent = elapsed_time
+        .fixed_div_floor(total_time, STROOP as i128)
+        .unwrap();
 
-    let streamed_amount = stream.deposit.fixed_mul_floor(elapsed_time_percent, STROOP as i128).unwrap();
+    let streamed_amount = stream
+        .deposit
+        .fixed_mul_floor(elapsed_time_percent, STROOP as i128)
+        .unwrap();
 
     if streamed_amount > stream.deposit {
         stream.deposit
@@ -265,7 +270,13 @@ impl StreamToken {
         stream_id
     }
 
-    pub fn withdraw_from_stream(e: Env, caller: Address, recipient: Address, stream_id: u32, amount: i128) {
+    pub fn withdraw_from_stream(
+        e: Env,
+        caller: Address,
+        recipient: Address,
+        stream_id: u32,
+        amount: i128,
+    ) {
         caller.require_auth();
         assert!(amount > 0, "amount is zero or negative");
         assert!(
@@ -278,7 +289,10 @@ impl StreamToken {
         require_recipient(&stream, &recipient);
 
         let streamed_amount = get_streamed_amount(&e, &stream);
-        assert!(amount >= streamed_amount, "amount exceeds the streamed amount");
+        assert!(
+            amount >= streamed_amount,
+            "amount exceeds the streamed amount"
+        );
 
         stream.withdrawn = stream.withdrawn + amount;
 

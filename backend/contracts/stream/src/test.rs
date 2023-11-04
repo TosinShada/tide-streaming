@@ -5,7 +5,7 @@ extern crate std;
 use super::testutils::{register_test_contract as register_streamtoken, StreamToken};
 use soroban_sdk::{
     testutils::{Address as AddressTestTrait, Ledger},
-    token, Address, Env
+    token, Address, Env,
 };
 
 fn create_streamtoken_contract(e: &Env, token: &Address) -> StreamToken {
@@ -104,10 +104,7 @@ fn test_streamed_amount() {
     let setup = Setup::new();
     advance_ledger(&setup.env, 31_536);
 
-    let streamed_amount = setup
-        .streamtoken
-        .client()
-        .streamed_amount(&setup.stream_id);
+    let streamed_amount = setup.streamtoken.client().streamed_amount(&setup.stream_id);
 
     assert_eq!(streamed_amount, 10_000);
 }
@@ -137,7 +134,10 @@ fn test_withdraw_from_stream() {
         .get_stream(&setup.stream_id);
 
     assert_eq!(old_stream_info.withdrawn, 0);
-    assert_eq!(setup.token.mock_all_auths().balance(&setup.recipient), 80_000_000);
+    assert_eq!(
+        setup.token.mock_all_auths().balance(&setup.recipient),
+        80_000_000
+    );
 
     setup
         .streamtoken
@@ -152,7 +152,10 @@ fn test_withdraw_from_stream() {
         .get_stream(&setup.stream_id);
 
     assert_eq!(new_stream_info.withdrawn, 10_000);
-    assert_eq!(setup.token.mock_all_auths().balance(&setup.recipient), 80_010_000);
+    assert_eq!(
+        setup.token.mock_all_auths().balance(&setup.recipient),
+        80_010_000
+    );
 }
 
 #[test]
@@ -168,8 +171,14 @@ fn test_cancel_stream() {
 
     assert_eq!(old_stream_info.withdrawn, 0);
     assert_eq!(old_stream_info.is_cancelled, false);
-    assert_eq!(setup.token.mock_all_auths().balance(&setup.sender), 90_000_000);
-    assert_eq!(setup.token.mock_all_auths().balance(&setup.recipient), 80_000_000);
+    assert_eq!(
+        setup.token.mock_all_auths().balance(&setup.sender),
+        90_000_000
+    );
+    assert_eq!(
+        setup.token.mock_all_auths().balance(&setup.recipient),
+        80_000_000
+    );
 
     setup
         .streamtoken
@@ -184,6 +193,12 @@ fn test_cancel_stream() {
         .get_stream(&setup.stream_id);
 
     assert_eq!(new_stream_info.is_cancelled, true);
-    assert_eq!(setup.token.mock_all_auths().balance(&setup.sender), 95_000_000);
-    assert_eq!(setup.token.mock_all_auths().balance(&setup.recipient), 85_000_000);
+    assert_eq!(
+        setup.token.mock_all_auths().balance(&setup.sender),
+        95_000_000
+    );
+    assert_eq!(
+        setup.token.mock_all_auths().balance(&setup.recipient),
+        85_000_000
+    );
 }

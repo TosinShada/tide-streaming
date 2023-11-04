@@ -45,25 +45,25 @@ import {
   networks as streamNetwork,
   Address
 } from 'streamdapp-client'
+import {
+  networks as tokenNetwork
+} from 'mock-client'
 import freighter from '@stellar/freighter-api'
 
 const tokens = [
   {
     label: 'MCKT - Mock Token',
-    value: 'CB35KISMVEVOD6MAR4ZRDE26EOFLFXDFWMQHU26QNTFR4K256EGBG7DS',
+    value: tokenNetwork.futurenet.contractId,
   },
 ] as const
 
 const accountFormSchema = z.object({
   tokenAddress: z.string({
-    required_error: 'A date of birth is required.',
+    required_error: 'Please select a token.',
   }),
-  flowRate: z.coerce
+  amount: z.coerce
     .number({
-      required_error: 'Please enter a flow rate.',
-    })
-    .lte(2, {
-      message: 'Flow rate must be less than 2.',
+      required_error: 'Please enter an amount.',
     }),
   recipient: z.string({
     required_error: 'Please enter a wallet address.',
@@ -75,7 +75,7 @@ type AccountFormValues = z.infer<typeof accountFormSchema>
 // This can come from your database or API.
 const defaultValues: Partial<AccountFormValues> = {
   tokenAddress: '',
-  flowRate: 0,
+  amount: 0,
   recipient: '',
 }
 
@@ -123,11 +123,9 @@ export function CreateStreamForm() {
     }
 
     // Get the flow rate with decimals
-    const flowRate = BigInt(Number(data.flowRate) * 10 ** 7)
     const from = moment(date?.from)
     const to = moment(date?.to)
-    const timeRange = moment(to).diff(from, 'seconds')
-    const amount = flowRate * BigInt(timeRange)
+    const amount = BigInt(data.amount * 10 ** 7)
 
     const createStreamRequest = {
       sender: Address.fromString(account.address),
@@ -138,6 +136,7 @@ export function CreateStreamForm() {
       stop_time: BigInt(to.unix()),
     }
 
+    console.log('data.tokenAddress', tokenNetwork.futurenet.contractId)
     console.log('createStreamRequest', createStreamRequest)
 
     await streamClient.createStream(createStreamRequest, {
@@ -154,6 +153,7 @@ export function CreateStreamForm() {
         })
       })
       .catch((error: any) => {
+        console.log('error', error)
         toast({
           variant: 'destructive',
           title: 'Uh oh! Something went wrong.',
@@ -162,8 +162,8 @@ export function CreateStreamForm() {
       })
       .finally(() => {
         setIsLoading(false)
-        form.reset(defaultValues)
-        setDate(defaultDate)
+        // form.reset(defaultValues)
+        // setDate(defaultDate)
       })
   }
 
@@ -197,10 +197,10 @@ export function CreateStreamForm() {
               <div className="grid gap-2">
                 <FormField
                   control={form.control}
-                  name="flowRate"
+                  name="amount"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Flow Rate/Second (1.00)</FormLabel>
+                      <FormLabel>Amount</FormLabel>
                       <FormControl>
                         <Input
                           placeholder="1.00"

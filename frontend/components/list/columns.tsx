@@ -34,42 +34,42 @@ export const columns: ColumnDef<Stream>[] = [
       )
     },
   },
-  {
-    accessorKey: 'remaining_balance',
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Remaining Balance" />
-    ),
-    cell: ({ row }) => {
-      const remainingBalance = row.original.remaining_balance
-      const decimal = row.original.token_decimals
-      const flowRate = row.original.rate_per_second
-      const startTime = row.original.start_time
-      return (
-        <div className="w-[120px]">
-          <FlowingBalance {...{ remainingBalance, decimal, flowRate, startTime }} />
-        </div>
-      )
-    },
-    filterFn: (row, id, value) => {
-      return value.includes(row.getValue(id))
-    },
-  },
-  {
-    accessorKey: 'rate_per_second',
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Flow Rate" />
-    ),
-    cell: ({ row }) => {
-      const decimal = row.original.token_decimals
-      const flowRate = row.original.rate_per_second * 86400n
-      return (
-        <div className="w-[120px]">{`${formatAmount(flowRate, decimal)}/day`}</div>
-      )
-    },
-    filterFn: (row, id, value) => {
-      return value.includes(row.getValue(id))
-    },
-  },
+  // {
+  //   accessorKey: 'remaining_balance',
+  //   header: ({ column }) => (
+  //     <DataTableColumnHeader column={column} title="Remaining Balance" />
+  //   ),
+  //   cell: ({ row }) => {
+  //     const remainingBalance = row.original.remaining_balance
+  //     const decimal = row.original.token_decimals
+  //     const flowRate = row.original.rate_per_second
+  //     const startTime = row.original.start_time
+  //     return (
+  //       <div className="w-[120px]">
+  //         <FlowingBalance {...{ remainingBalance, decimal, flowRate, startTime }} />
+  //       </div>
+  //     )
+  //   },
+  //   filterFn: (row, id, value) => {
+  //     return value.includes(row.getValue(id))
+  //   },
+  // },
+  // {
+  //   accessorKey: 'rate_per_second',
+  //   header: ({ column }) => (
+  //     <DataTableColumnHeader column={column} title="Flow Rate" />
+  //   ),
+  //   cell: ({ row }) => {
+  //     const decimal = row.original.token_decimals
+  //     const flowRate = row.original.rate_per_second * 86400n
+  //     return (
+  //       <div className="w-[120px]">{`${formatAmount(flowRate, decimal)}/day`}</div>
+  //     )
+  //   },
+  //   filterFn: (row, id, value) => {
+  //     return value.includes(row.getValue(id))
+  //   },
+  // },
   {
     accessorKey: 'sender',
     header: ({ column }) => (
