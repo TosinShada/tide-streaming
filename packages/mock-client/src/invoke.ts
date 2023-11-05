@@ -200,7 +200,9 @@ async function restoreAndRetry(
       throw new Error("Not connected to Freighter");
     }
 
-    const restoreTx = new SorobanClient.TransactionBuilder(walletAccount, { fee: fee.toString() })
+    let simulationFee = fee + parseInt(simulated.restorePreamble.minResourceFee);
+
+    const restoreTx = new SorobanClient.TransactionBuilder(walletAccount, { fee: simulationFee.toString() })
       .setNetworkPassphrase(networkPassphrase)
       .setSorobanData(simulated.restorePreamble.transactionData.build())
       .addOperation(SorobanClient.Operation.restoreFootprint({}))
