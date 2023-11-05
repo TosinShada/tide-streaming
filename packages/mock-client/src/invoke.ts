@@ -106,7 +106,11 @@ export async function invoke<R extends ResponseTypes, T = string>({
     .addOperation(contract.call(method, ...args))
     .setTimeout(SorobanClient.TimeoutInfinite)
     .build();
-  const simulated = await server.simulateTransaction(tx);
+  let simulated = await server.simulateTransaction(tx);
+
+  if (SorobanRpc.isSimulationRestore(simulated)) {
+    simulated = await restoreAndRetry(simulated, walletAccount, tx, wallet, networkPassphrase, fee, server, contract, method, args);
+  }
 
   if (SorobanRpc.isSimulationError(simulated)) {
     throw new Error(simulated.error);
@@ -178,6 +182,52 @@ export async function invoke<R extends ResponseTypes, T = string>({
   // if neither of these are present, something went wrong
   console.error("Don't know how to parse result! Returning full RPC response.");
   return raw;
+}
+
+async function restoreAndRetry(
+  simulated: SorobanRpc.SimulateTransactionRestoreResponse,
+  walletAccount: SorobanClient.Account | null,
+  tx: SorobanClient.Transaction<SorobanClient.Memo<SorobanClient.MemoType>, SorobanClient.Operation[]>,
+  wallet: Wallet,
+  networkPassphrase: string,
+  fee: number,
+  server: SorobanClient.Server,
+  contract: SorobanClient.Contract,
+  method: string,
+  args = [],
+): Promise<SorobanRpc.SimulateTransactionResponse> {
+    if (!walletAccount) {
+      throw new Error("Not connected to Freighter");
+    }
+
+    let simulationFee = fee + parseInt(simulated.restorePreamble.minResourceFee);
+
+    const restoreTx = new SorobanClient.TransactionBuilder(walletAccount, { fee: simulationFee.toString() })
+      .setNetworkPassphrase(networkPassphrase)
+      .setSorobanData(simulated.restorePreamble.transactionData.build())
+      .addOperation(SorobanClient.Operation.restoreFootprint({}))
+      .build();
+
+    tx = await signTx(
+      wallet,
+      restoreTx,
+      networkPassphrase
+    );
+
+    const resp = await sendTx(tx, 20, server);
+
+    if (resp.status !== SorobanRpc.GetTransactionStatus.SUCCESS) {
+      throw new Error('Failed to restore transaction');
+    }
+    
+    let retryTx = new SorobanClient.TransactionBuilder(walletAccount, {
+      fee: fee.toString(10),
+      networkPassphrase,
+    })
+      .addOperation(contract.call(method, ...args))
+      .setTimeout(SorobanClient.TimeoutInfinite)
+      .build();
+    return await server.simulateTransaction(retryTx);
 }
 
 /**

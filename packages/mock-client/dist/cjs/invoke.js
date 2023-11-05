@@ -40,7 +40,10 @@ async function invoke({ method, args = [], fee = 100, responseType, parseResultX
         .addOperation(contract.call(method, ...args))
         .setTimeout(SorobanClient.TimeoutInfinite)
         .build();
-    const simulated = await server.simulateTransaction(tx);
+    let simulated = await server.simulateTransaction(tx);
+    if (soroban_client_1.SorobanRpc.isSimulationRestore(simulated)) {
+        simulated = await restoreAndRetry(simulated, walletAccount, tx, wallet, networkPassphrase, fee, server, contract, method, args);
+    }
     if (soroban_client_1.SorobanRpc.isSimulationError(simulated)) {
         throw new Error(simulated.error);
     }
@@ -100,6 +103,30 @@ async function invoke({ method, args = [], fee = 100, responseType, parseResultX
     return raw;
 }
 exports.invoke = invoke;
+async function restoreAndRetry(simulated, walletAccount, tx, wallet, networkPassphrase, fee, server, contract, method, args = []) {
+    if (!walletAccount) {
+        throw new Error("Not connected to Freighter");
+    }
+    let simulationFee = fee + parseInt(simulated.restorePreamble.minResourceFee);
+    const restoreTx = new SorobanClient.TransactionBuilder(walletAccount, { fee: simulationFee.toString() })
+        .setNetworkPassphrase(networkPassphrase)
+        .setSorobanData(simulated.restorePreamble.transactionData.build())
+        .addOperation(SorobanClient.Operation.restoreFootprint({}))
+        .build();
+    tx = await signTx(wallet, restoreTx, networkPassphrase);
+    const resp = await sendTx(tx, 20, server);
+    if (resp.status !== soroban_client_1.SorobanRpc.GetTransactionStatus.SUCCESS) {
+        throw new Error('Failed to restore transaction');
+    }
+    let retryTx = new SorobanClient.TransactionBuilder(walletAccount, {
+        fee: fee.toString(10),
+        networkPassphrase,
+    })
+        .addOperation(contract.call(method, ...args))
+        .setTimeout(SorobanClient.TimeoutInfinite)
+        .build();
+    return await server.simulateTransaction(retryTx);
+}
 /**
  * Sign a transaction with Freighter and return the fully-reconstructed
  * transaction ready to send with {@link sendTx}.

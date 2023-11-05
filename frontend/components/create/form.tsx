@@ -257,7 +257,7 @@ export function CreateStreamForm() {
                         defaultMonth={date?.from}
                         selected={date}
                         onSelect={setDate}
-                        // disabled={date => date < new Date()}
+                        disabled={date => date < new Date()}
                         numberOfMonths={2}
                       />
                     </PopoverContent>
