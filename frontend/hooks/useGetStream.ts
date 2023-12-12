@@ -23,20 +23,20 @@ export function useGetStream() {
   const [userStreams, setUserStreams] = useState<Stream[]>(defaultState)
   const account = useAccount()
 
-  const tokenClient = new tokenContract({
-    contractId: tokenNetwork.futurenet.contractId,
-    networkPassphrase: tokenNetwork.futurenet.networkPassphrase,
-    rpcUrl: 'https://rpc-futurenet.stellar.org:443',
-    wallet: freighter,
-  })
-  const streamClient = new streamContract({
-    contractId: streamNetwork.futurenet.contractId,
-    networkPassphrase: streamNetwork.futurenet.networkPassphrase,
-    rpcUrl: 'https://rpc-futurenet.stellar.org:443',
-    wallet: freighter,
-  })
-
   useEffect(() => {
+    const tokenClient = new tokenContract({
+      contractId: tokenNetwork.futurenet.contractId,
+      networkPassphrase: tokenNetwork.futurenet.networkPassphrase,
+      rpcUrl: 'https://rpc-futurenet.stellar.org:443',
+      wallet: freighter,
+    })
+    const streamClient = new streamContract({
+      contractId: streamNetwork.futurenet.contractId,
+      networkPassphrase: streamNetwork.futurenet.networkPassphrase,
+      rpcUrl: 'https://rpc-futurenet.stellar.org:443',
+      wallet: freighter,
+    })
+
     Promise.all([
       tokenClient.balance({ id: tokenNetwork.futurenet.contractId }),
       tokenClient.decimals(),
@@ -56,7 +56,7 @@ export function useGetStream() {
     }).catch(err => {
       console.error(err)
     })
-  }, [updatedAt, account])
+  }, [account, updatedAt])
 
   return {
     token,

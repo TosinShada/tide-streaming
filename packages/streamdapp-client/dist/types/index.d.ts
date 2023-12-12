@@ -43,7 +43,7 @@ export declare class Err<E extends Error_ = Error_> implements Result<any, E> {
 export declare const networks: {
     readonly futurenet: {
         readonly networkPassphrase: "Test SDF Future Network ; October 2022";
-        readonly contractId: "CCBL5P7BTCGQZUZYVNX3YVXDSGTHFEYDIPMHLTRDDNZRRBG3TZE2GPIQ";
+        readonly contractId: "CB4LMZE3AYMUSBLRJPIJ5IEKV3KPVVODYQWOKT2BGZVY62XZ7AI2MTQF";
     };
 };
 export interface Stream {

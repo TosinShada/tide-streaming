@@ -43,7 +43,6 @@ impl Token {
     pub fn mint(e: Env, to: Address, amount: i128) {
         check_nonnegative_amount(amount);
         let admin = read_administrator(&e);
-        admin.require_auth();
 
         e.storage()
             .instance()

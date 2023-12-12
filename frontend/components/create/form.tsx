@@ -146,29 +146,36 @@ export function CreateStreamForm() {
 
     await streamClient.createStream(createStreamRequest, {
       fee: 1000,
-      secondsToWait: 20,
       responseType: 'full',
     })
       .then((result: any) => {
-        // console.log('result', result)
-        toast({
-          variant: 'default',
-          title: 'Success!',
-          description: 'Stream created successfully.',
-        })
+        console.log('result', result)
+        if (result.status !== 'SUCCESS') {
+          toast({
+            variant: 'destructive',
+            title: 'Uh oh! Something went wrong.',
+            description: 'An error occured.',
+          })
+        } else {
+          toast({
+            variant: 'default',
+            title: 'Success!',
+            description: 'Stream created successfully.',
+          })
+        }
       })
       .catch((error: any) => {
         console.log('error', error)
         toast({
           variant: 'destructive',
           title: 'Uh oh! Something went wrong.',
-          description: 'Please check your parameters and try again.',
+          description: `${error?.message ?? 'Unknown error'}`,
         })
       })
       .finally(() => {
         setIsLoading(false)
-        // form.reset(defaultValues)
-        // setDate(defaultDate)
+        form.reset(defaultValues)
+        setDate(defaultDate)
       })
   }
 

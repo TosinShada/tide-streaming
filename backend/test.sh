@@ -4,8 +4,7 @@ set -e
 
 ADMIN_ADDRESS="$(soroban config identity address token-admin)"
 NETWORK="$(cat ./.stream-payment-dapp/network)"
-STREAMDAPP_ID="$(cat ./.stream-payment-dapp/streamdapp_id)"
-TOKEN_ADDRESS="$(cat ./.stream-payment-dapp/mock_token_id)"
+MOCK_TOKEN_ID="$(cat ./.stream-payment-dapp/mock_token_id)"
 
 echo Add the network to cli client
 soroban config network add \
@@ -14,13 +13,23 @@ soroban config network add \
 
 ARGS="--network $NETWORK --source token-admin"
 
-echo "Minting 10,000,000.0000000 tokens to token-admin"
+echo Build contracts
+make build
+
+echo Deploy the streamdapp contract
+STREAMDAPP_ID="$(
+  soroban contract deploy $ARGS \
+    --wasm target/wasm32-unknown-unknown/release/soroban_stream_contract.wasm
+)"
+echo "Contract deployed succesfully with ID: $STREAMDAPP_ID"
+echo "$STREAMDAPP_ID" > .stream-payment-dapp/streamdapp_id
+
+echo "Initialize the streamdapp contract"
 soroban contract invoke \
   $ARGS \
-  --id "$TOKEN_ADDRESS" \
+  --id "$STREAMDAPP_ID" \
   -- \
-  mint \
-  --to "$ADMIN_ADDRESS" \
-  --amount 1000000000000
+  initialize \
+  --token "$MOCK_TOKEN_ID"
 
 echo "Done" 
