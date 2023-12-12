@@ -92,7 +92,7 @@ function parseError(message: string): Err | undefined {
 export const networks = {
     futurenet: {
         networkPassphrase: "Test SDF Future Network ; October 2022",
-        contractId: "CAGNADVAEZ4UV3AFMWR6D2E2SLJXUIBSLTMZAOTITESOQBO5S3ZDTNPE",
+        contractId: "CB4LMZE3AYMUSBLRJPIJ5IEKV3KPVVODYQWOKT2BGZVY62XZ7AI2MTQF",
     }
 } as const
 
@@ -100,17 +100,17 @@ export interface Stream {
   deposit: i128;
   id: u32;
   is_cancelled: boolean;
-  recipient: Address;
-  sender: Address;
+  recipient: string;
+  sender: string;
   start_time: u64;
   stop_time: u64;
-  token_address: Address;
+  token_address: string;
   token_decimals: u32;
   token_symbol: string;
   withdrawn: i128;
 }
 
-export type DataKey = {tag: "Token", values: void} | {tag: "NextStreamId", values: void} | {tag: "Streams", values: readonly [u32]} | {tag: "UserStreams", values: readonly [Address]};
+export type DataKey = {tag: "Token", values: void} | {tag: "NextStreamId", values: void} | {tag: "Streams", values: readonly [u32]} | {tag: "UserStreams", values: readonly [string]};
 
 const Errors = {
 
@@ -131,7 +131,7 @@ export class Contract {
         "AAAAAAAAAUlDYW5jZWxzIHRoZSBzdHJlYW0gYW5kIHRyYW5zZmVycyB0aGUgdG9rZW5zIGJhY2sgb24gYSBwcm8gcmF0YSBiYXNpcy4KVGhyb3dzIGlmIHRoZSBpZCBkb2VzIG5vdCBwb2ludCB0byBhIHZhbGlkIHN0cmVhbS4KVGhyb3dzIGlmIHRoZSBjYWxsZXIgaXMgbm90IHRoZSBzZW5kZXIgb3IgdGhlIHJlY2lwaWVudCBvZiB0aGUgc3RyZWFtLgpUaHJvd3MgaWYgdGhlcmUgaXMgYSB0b2tlbiB0cmFuc2ZlciBmYWlsdXJlLgpAcGFyYW0gc3RyZWFtX2lkIFRoZSBpZCBvZiB0aGUgc3RyZWFtIHRvIGNhbmNlbC4KQHJldHVybiBib29sIHRydWU9c3VjY2Vzcywgb3RoZXJ3aXNlIGZhbHNlLgAAAAAAAA1jYW5jZWxfc3RyZWFtAAAAAAAAAgAAAAAAAAAGY2FsbGVyAAAAAAATAAAAAAAAAAlzdHJlYW1faWQAAAAAAAAEAAAAAA=="
             ]);
     }
-    async initialize<R extends ResponseTypes = undefined>({token}: {token: Address}, options: {
+    initialize = async <R extends ResponseTypes = undefined>({token}: {token: string}, options: {
         /**
          * The fee to pay for the transaction. Default: 100.
          */
@@ -148,10 +148,10 @@ export class Contract {
          * If the simulation shows that this invocation requires auth/signing, `invoke` will wait `secondsToWait` seconds for the transaction to complete before giving up and returning the incomplete {@link SorobanClient.SorobanRpc.GetTransactionResponse} results (or attempting to parse their probably-missing XDR with `parseResultXdr`, depending on `responseType`). Set this to `0` to skip waiting altogether, which will return you {@link SorobanClient.SorobanRpc.SendTransactionResponse} more quickly, before the transaction has time to be included in the ledger. Default: 10.
          */
         secondsToWait?: number
-    } = {}) {
+    } = {}) => {
                     return await invoke({
             method: 'initialize',
-            args: this.spec.funcArgsToScVals("initialize", {token}),
+            args: this.spec.funcArgsToScVals("initialize", {token: new Address(token)}),
             ...options,
             ...this.options,
             parseResultXdr: () => {},
@@ -159,7 +159,7 @@ export class Contract {
     }
 
 
-    async getStream<R extends ResponseTypes = undefined>({stream_id}: {stream_id: u32}, options: {
+    getStream = async <R extends ResponseTypes = undefined>({stream_id}: {stream_id: u32}, options: {
         /**
          * The fee to pay for the transaction. Default: 100.
          */
@@ -176,7 +176,7 @@ export class Contract {
          * If the simulation shows that this invocation requires auth/signing, `invoke` will wait `secondsToWait` seconds for the transaction to complete before giving up and returning the incomplete {@link SorobanClient.SorobanRpc.GetTransactionResponse} results (or attempting to parse their probably-missing XDR with `parseResultXdr`, depending on `responseType`). Set this to `0` to skip waiting altogether, which will return you {@link SorobanClient.SorobanRpc.SendTransactionResponse} more quickly, before the transaction has time to be included in the ledger. Default: 10.
          */
         secondsToWait?: number
-    } = {}) {
+    } = {}) => {
                     return await invoke({
             method: 'get_stream',
             args: this.spec.funcArgsToScVals("get_stream", {stream_id}),
@@ -189,7 +189,7 @@ export class Contract {
     }
 
 
-    async getStreamsByUser<R extends ResponseTypes = undefined>({caller}: {caller: Address}, options: {
+    getStreamsByUser = async <R extends ResponseTypes = undefined>({caller}: {caller: string}, options: {
         /**
          * The fee to pay for the transaction. Default: 100.
          */
@@ -206,10 +206,10 @@ export class Contract {
          * If the simulation shows that this invocation requires auth/signing, `invoke` will wait `secondsToWait` seconds for the transaction to complete before giving up and returning the incomplete {@link SorobanClient.SorobanRpc.GetTransactionResponse} results (or attempting to parse their probably-missing XDR with `parseResultXdr`, depending on `responseType`). Set this to `0` to skip waiting altogether, which will return you {@link SorobanClient.SorobanRpc.SendTransactionResponse} more quickly, before the transaction has time to be included in the ledger. Default: 10.
          */
         secondsToWait?: number
-    } = {}) {
+    } = {}) => {
                     return await invoke({
             method: 'get_streams_by_user',
-            args: this.spec.funcArgsToScVals("get_streams_by_user", {caller}),
+            args: this.spec.funcArgsToScVals("get_streams_by_user", {caller: new Address(caller)}),
             ...options,
             ...this.options,
             parseResultXdr: (xdr): Array<Stream> => {
@@ -220,13 +220,13 @@ export class Contract {
 
 
     /**
- * Returns the amount of tokens that have already been released to the recipient.
+     * Returns the amount of tokens that have already been released to the recipient.
  * Panics if the id does not point to a valid stream.
  * @param stream_id The id of the stream
  * @param who The address of the caller
  * @return The amount of tokens that have already been released
- */
-async streamedAmount<R extends ResponseTypes = undefined>({stream_id}: {stream_id: u32}, options: {
+     */
+streamedAmount = async <R extends ResponseTypes = undefined>({stream_id}: {stream_id: u32}, options: {
         /**
          * The fee to pay for the transaction. Default: 100.
          */
@@ -243,7 +243,7 @@ async streamedAmount<R extends ResponseTypes = undefined>({stream_id}: {stream_i
          * If the simulation shows that this invocation requires auth/signing, `invoke` will wait `secondsToWait` seconds for the transaction to complete before giving up and returning the incomplete {@link SorobanClient.SorobanRpc.GetTransactionResponse} results (or attempting to parse their probably-missing XDR with `parseResultXdr`, depending on `responseType`). Set this to `0` to skip waiting altogether, which will return you {@link SorobanClient.SorobanRpc.SendTransactionResponse} more quickly, before the transaction has time to be included in the ledger. Default: 10.
          */
         secondsToWait?: number
-    } = {}) {
+    } = {}) => {
                     return await invoke({
             method: 'streamed_amount',
             args: this.spec.funcArgsToScVals("streamed_amount", {stream_id}),
@@ -256,7 +256,7 @@ async streamedAmount<R extends ResponseTypes = undefined>({stream_id}: {stream_i
     }
 
 
-    async createStream<R extends ResponseTypes = undefined>({sender, recipient, amount, token_address, start_time, stop_time}: {sender: Address, recipient: Address, amount: i128, token_address: Address, start_time: u64, stop_time: u64}, options: {
+    createStream = async <R extends ResponseTypes = undefined>({sender, recipient, amount, token_address, start_time, stop_time}: {sender: string, recipient: string, amount: i128, token_address: string, start_time: u64, stop_time: u64}, options: {
         /**
          * The fee to pay for the transaction. Default: 100.
          */
@@ -273,10 +273,10 @@ async streamedAmount<R extends ResponseTypes = undefined>({stream_id}: {stream_i
          * If the simulation shows that this invocation requires auth/signing, `invoke` will wait `secondsToWait` seconds for the transaction to complete before giving up and returning the incomplete {@link SorobanClient.SorobanRpc.GetTransactionResponse} results (or attempting to parse their probably-missing XDR with `parseResultXdr`, depending on `responseType`). Set this to `0` to skip waiting altogether, which will return you {@link SorobanClient.SorobanRpc.SendTransactionResponse} more quickly, before the transaction has time to be included in the ledger. Default: 10.
          */
         secondsToWait?: number
-    } = {}) {
+    } = {}) => {
                     return await invoke({
             method: 'create_stream',
-            args: this.spec.funcArgsToScVals("create_stream", {sender, recipient, amount, token_address, start_time, stop_time}),
+            args: this.spec.funcArgsToScVals("create_stream", {sender: new Address(sender), recipient: new Address(recipient), amount, token_address: new Address(token_address), start_time, stop_time}),
             ...options,
             ...this.options,
             parseResultXdr: (xdr): u32 => {
@@ -286,7 +286,7 @@ async streamedAmount<R extends ResponseTypes = undefined>({stream_id}: {stream_i
     }
 
 
-    async withdrawFromStream<R extends ResponseTypes = undefined>({caller, recipient, stream_id, amount}: {caller: Address, recipient: Address, stream_id: u32, amount: i128}, options: {
+    withdrawFromStream = async <R extends ResponseTypes = undefined>({caller, recipient, stream_id, amount}: {caller: string, recipient: string, stream_id: u32, amount: i128}, options: {
         /**
          * The fee to pay for the transaction. Default: 100.
          */
@@ -303,10 +303,10 @@ async streamedAmount<R extends ResponseTypes = undefined>({stream_id}: {stream_i
          * If the simulation shows that this invocation requires auth/signing, `invoke` will wait `secondsToWait` seconds for the transaction to complete before giving up and returning the incomplete {@link SorobanClient.SorobanRpc.GetTransactionResponse} results (or attempting to parse their probably-missing XDR with `parseResultXdr`, depending on `responseType`). Set this to `0` to skip waiting altogether, which will return you {@link SorobanClient.SorobanRpc.SendTransactionResponse} more quickly, before the transaction has time to be included in the ledger. Default: 10.
          */
         secondsToWait?: number
-    } = {}) {
+    } = {}) => {
                     return await invoke({
             method: 'withdraw_from_stream',
-            args: this.spec.funcArgsToScVals("withdraw_from_stream", {caller, recipient, stream_id, amount}),
+            args: this.spec.funcArgsToScVals("withdraw_from_stream", {caller: new Address(caller), recipient: new Address(recipient), stream_id, amount}),
             ...options,
             ...this.options,
             parseResultXdr: () => {},
@@ -315,14 +315,14 @@ async streamedAmount<R extends ResponseTypes = undefined>({stream_id}: {stream_i
 
 
     /**
- * Cancels the stream and transfers the tokens back on a pro rata basis.
+     * Cancels the stream and transfers the tokens back on a pro rata basis.
  * Throws if the id does not point to a valid stream.
  * Throws if the caller is not the sender or the recipient of the stream.
  * Throws if there is a token transfer failure.
  * @param stream_id The id of the stream to cancel.
  * @return bool true=success, otherwise false.
- */
-async cancelStream<R extends ResponseTypes = undefined>({caller, stream_id}: {caller: Address, stream_id: u32}, options: {
+     */
+cancelStream = async <R extends ResponseTypes = undefined>({caller, stream_id}: {caller: string, stream_id: u32}, options: {
         /**
          * The fee to pay for the transaction. Default: 100.
          */
@@ -339,10 +339,10 @@ async cancelStream<R extends ResponseTypes = undefined>({caller, stream_id}: {ca
          * If the simulation shows that this invocation requires auth/signing, `invoke` will wait `secondsToWait` seconds for the transaction to complete before giving up and returning the incomplete {@link SorobanClient.SorobanRpc.GetTransactionResponse} results (or attempting to parse their probably-missing XDR with `parseResultXdr`, depending on `responseType`). Set this to `0` to skip waiting altogether, which will return you {@link SorobanClient.SorobanRpc.SendTransactionResponse} more quickly, before the transaction has time to be included in the ledger. Default: 10.
          */
         secondsToWait?: number
-    } = {}) {
+    } = {}) => {
                     return await invoke({
             method: 'cancel_stream',
-            args: this.spec.funcArgsToScVals("cancel_stream", {caller, stream_id}),
+            args: this.spec.funcArgsToScVals("cancel_stream", {caller: new Address(caller), stream_id}),
             ...options,
             ...this.options,
             parseResultXdr: () => {},

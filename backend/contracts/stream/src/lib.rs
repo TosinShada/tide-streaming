@@ -7,11 +7,11 @@ mod test;
 mod testutils;
 
 pub(crate) const DAY_IN_LEDGERS: u32 = 17280;
-pub(crate) const INSTANCE_BUMP_AMOUNT: u32 = 7 * DAY_IN_LEDGERS;
-pub(crate) const INSTANCE_LIFETIME_THRESHOLD: u32 = INSTANCE_BUMP_AMOUNT - DAY_IN_LEDGERS;
+pub(crate) const INSTANCE_extend_ttl_AMOUNT: u32 = 7 * DAY_IN_LEDGERS;
+pub(crate) const INSTANCE_LIFETIME_THRESHOLD: u32 = INSTANCE_extend_ttl_AMOUNT - DAY_IN_LEDGERS;
 
-pub(crate) const PERSISTENT_BUMP_AMOUNT: u32 = 30 * DAY_IN_LEDGERS;
-pub(crate) const PERSISTENT_LIFETIME_THRESHOLD: u32 = PERSISTENT_BUMP_AMOUNT - DAY_IN_LEDGERS;
+pub(crate) const PERSISTENT_extend_ttl_AMOUNT: u32 = 30 * DAY_IN_LEDGERS;
+pub(crate) const PERSISTENT_LIFETIME_THRESHOLD: u32 = PERSISTENT_extend_ttl_AMOUNT - DAY_IN_LEDGERS;
 
 #[derive(Clone, Debug)]
 #[contracttype]
@@ -132,10 +132,10 @@ fn set_stream(e: &Env, stream_id: &u32, stream: &Stream) {
     e.storage()
         .persistent()
         .set(&DataKey::Streams(stream_id.clone()), stream);
-    e.storage().persistent().bump(
+    e.storage().persistent().extend_ttl(
         &DataKey::Streams(stream_id.clone()),
         PERSISTENT_LIFETIME_THRESHOLD,
-        PERSISTENT_BUMP_AMOUNT,
+        PERSISTENT_extend_ttl_AMOUNT,
     );
 }
 
@@ -146,10 +146,10 @@ fn set_stream_by_user(e: &Env, who: &Address, stream: &Stream) {
     e.storage()
         .persistent()
         .set(&DataKey::UserStreams(who.clone()), &streams);
-    e.storage().persistent().bump(
+    e.storage().persistent().extend_ttl(
         &DataKey::UserStreams(who.clone()),
         PERSISTENT_LIFETIME_THRESHOLD,
-        PERSISTENT_BUMP_AMOUNT,
+        PERSISTENT_extend_ttl_AMOUNT,
     );
 }
 
@@ -159,7 +159,7 @@ fn set_next_stream_id(e: &Env, stream_id: &u32) {
         .set(&DataKey::NextStreamId, &(stream_id + 1));
     e.storage()
         .instance()
-        .bump(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
+        .extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_extend_ttl_AMOUNT);
 }
 
 #[contract]
@@ -181,7 +181,7 @@ impl StreamToken {
         e.storage().instance().set(&DataKey::Token, &token);
         e.storage()
             .instance()
-            .bump(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_BUMP_AMOUNT);
+            .extend_ttl(INSTANCE_LIFETIME_THRESHOLD, INSTANCE_extend_ttl_AMOUNT);
     }
 
     pub fn get_stream(e: Env, stream_id: u32) -> Stream {

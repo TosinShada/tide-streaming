@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react'
 import {
   Contract as tokenContract,
-  networks as tokenNetwork,
-  Address
+  networks as tokenNetwork
 } from 'mock-client'
 import {
   Contract as streamContract,
@@ -24,27 +23,27 @@ export function useGetStream() {
   const [userStreams, setUserStreams] = useState<Stream[]>(defaultState)
   const account = useAccount()
 
-  const tokenClient = new tokenContract({
-    contractId: tokenNetwork.futurenet.contractId,
-    networkPassphrase: tokenNetwork.futurenet.networkPassphrase,
-    rpcUrl: 'https://rpc-futurenet.stellar.org:443',
-    wallet: freighter,
-  })
-  const streamClient = new streamContract({
-    contractId: streamNetwork.futurenet.contractId,
-    networkPassphrase: streamNetwork.futurenet.networkPassphrase,
-    rpcUrl: 'https://rpc-futurenet.stellar.org:443',
-    wallet: freighter,
-  })
-
   useEffect(() => {
+    const tokenClient = new tokenContract({
+      contractId: tokenNetwork.futurenet.contractId,
+      networkPassphrase: tokenNetwork.futurenet.networkPassphrase,
+      rpcUrl: 'https://rpc-futurenet.stellar.org:443',
+      wallet: freighter,
+    })
+    const streamClient = new streamContract({
+      contractId: streamNetwork.futurenet.contractId,
+      networkPassphrase: streamNetwork.futurenet.networkPassphrase,
+      rpcUrl: 'https://rpc-futurenet.stellar.org:443',
+      wallet: freighter,
+    })
+
     Promise.all([
-      tokenClient.balance({ id: Address.fromString(tokenNetwork.futurenet.contractId) }),
+      tokenClient.balance({ id: tokenNetwork.futurenet.contractId }),
       tokenClient.decimals(),
       tokenClient.name(),
       tokenClient.symbol(),
 
-      streamClient.getStreamsByUser({ caller: Address.fromString(account?.address || 'GDZDBDNC2HX5FTQQJE64LJBEI4PO4BXQX25ASGUOCK4H3VBW6GCR45RR') }),
+      streamClient.getStreamsByUser({ caller: account?.address || 'GDZDBDNC2HX5FTQQJE64LJBEI4PO4BXQX25ASGUOCK4H3VBW6GCR45RR' }),
     ]).then(fetched => {
       setToken({
         balance: fetched[0],
@@ -57,7 +56,7 @@ export function useGetStream() {
     }).catch(err => {
       console.error(err)
     })
-  }, [updatedAt, account])
+  }, [account, updatedAt])
 
   return {
     token,

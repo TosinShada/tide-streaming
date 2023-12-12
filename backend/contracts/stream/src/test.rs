@@ -46,15 +46,15 @@ fn create_token_contract<'a>(
 impl Setup<'_> {
     fn new() -> Self {
         let e: Env = soroban_sdk::Env::default();
-        let sender = Address::random(&e);
-        let recipient = Address::random(&e);
+        let sender = Address::generate(&e);
+        let recipient = Address::generate(&e);
 
         // the deadline is 10 seconds from now
         let timestamp = e.ledger().timestamp();
         let deadline = timestamp + 31_536_000;
 
         // Create the token contract
-        let token_admin = Address::random(&e);
+        let token_admin = Address::generate(&e);
         let (token, token_admin) = create_token_contract(&e, &token_admin);
 
         // Create the streamtokening contract

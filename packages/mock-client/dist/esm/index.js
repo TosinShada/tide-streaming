@@ -65,7 +65,7 @@ function parseError(message) {
 export const networks = {
     futurenet: {
         networkPassphrase: "Test SDF Future Network ; October 2022",
-        contractId: "CDZZJRYVC6FKDESN7GT3OS22XVJNPDZIWXNGXOEROTNI7N3IJO5HNBM7",
+        contractId: "CB2DXS52C6E252HEIGDY4DEKJWHKTBICED2PMILWHCEUT4ECQQEPAQK7",
     }
 };
 const Errors = {};
@@ -76,12 +76,11 @@ export class Contract {
         this.options = options;
         this.spec = new ContractSpec([
             "AAAAAAAAAAAAAAAKaW5pdGlhbGl6ZQAAAAAABAAAAAAAAAAFYWRtaW4AAAAAAAATAAAAAAAAAAdkZWNpbWFsAAAAAAQAAAAAAAAABG5hbWUAAAAQAAAAAAAAAAZzeW1ib2wAAAAAABAAAAAA",
-            "AAAAAAAAANRNaW50IHlvdXJzZWxmIHNvbWUgdG9rZW5zIQoKIyBBcmd1bWVudHMKCiogYHRvYCAtIFRoZSBhY2NvdW50IHRvIG1pbnQgdG9rZW5zIHRvOyB0aGUgdHJhbnNhY3Rpb24gbXVzdCBhbHNvIGJlIHNpZ25lZCBieSB0aGlzCmFjY291bnQKKiBgYW1vdW50YCAtIFRoZSBhbW91bnQgb2YgdG9rZW5zIHRvIG1pbnQgKHJlbWVtYmVyIHRvIG11bHRpcGx5IGJ5IGBkZWNpbWFsc2AhKQAAAARtaW50AAAAAgAAAAAAAAACdG8AAAAAABMAAAAAAAAABmFtb3VudAAAAAAACwAAAAA=",
+            "AAAAAAAAAAAAAAAEbWludAAAAAIAAAAAAAAAAnRvAAAAAAATAAAAAAAAAAZhbW91bnQAAAAAAAsAAAAA",
             "AAAAAAAAAAAAAAAJc2V0X2FkbWluAAAAAAAAAQAAAAAAAAAJbmV3X2FkbWluAAAAAAAAEwAAAAA=",
             "AAAAAAAAAAAAAAAJYWxsb3dhbmNlAAAAAAAAAgAAAAAAAAAEZnJvbQAAABMAAAAAAAAAB3NwZW5kZXIAAAAAEwAAAAEAAAAL",
             "AAAAAAAAAAAAAAAHYXBwcm92ZQAAAAAEAAAAAAAAAARmcm9tAAAAEwAAAAAAAAAHc3BlbmRlcgAAAAATAAAAAAAAAAZhbW91bnQAAAAAAAsAAAAAAAAAEWV4cGlyYXRpb25fbGVkZ2VyAAAAAAAABAAAAAA=",
             "AAAAAAAAAAAAAAAHYmFsYW5jZQAAAAABAAAAAAAAAAJpZAAAAAAAEwAAAAEAAAAL",
-            "AAAAAAAAAAAAAAARc3BlbmRhYmxlX2JhbGFuY2UAAAAAAAABAAAAAAAAAAJpZAAAAAAAEwAAAAEAAAAL",
             "AAAAAAAAAAAAAAAIdHJhbnNmZXIAAAADAAAAAAAAAARmcm9tAAAAEwAAAAAAAAACdG8AAAAAABMAAAAAAAAABmFtb3VudAAAAAAACwAAAAA=",
             "AAAAAAAAAAAAAAANdHJhbnNmZXJfZnJvbQAAAAAAAAQAAAAAAAAAB3NwZW5kZXIAAAAAEwAAAAAAAAAEZnJvbQAAABMAAAAAAAAAAnRvAAAAAAATAAAAAAAAAAZhbW91bnQAAAAAAAsAAAAA",
             "AAAAAAAAAAAAAAAEYnVybgAAAAIAAAAAAAAABGZyb20AAAATAAAAAAAAAAZhbW91bnQAAAAAAAsAAAAA",
@@ -95,121 +94,101 @@ export class Contract {
             "AAAAAQAAAAAAAAAAAAAADVRva2VuTWV0YWRhdGEAAAAAAAADAAAAAAAAAAdkZWNpbWFsAAAAAAQAAAAAAAAABG5hbWUAAAAQAAAAAAAAAAZzeW1ib2wAAAAAABA="
         ]);
     }
-    async initialize({ admin, decimal, name, symbol }, options = {}) {
+    initialize = async ({ admin, decimal, name, symbol }, options = {}) => {
         return await invoke({
             method: 'initialize',
-            args: this.spec.funcArgsToScVals("initialize", { admin, decimal, name, symbol }),
+            args: this.spec.funcArgsToScVals("initialize", { admin: new Address(admin), decimal, name, symbol }),
             ...options,
             ...this.options,
             parseResultXdr: () => { },
         });
-    }
-    /**
- * Mint yourself some tokens!
- *
- * # Arguments
- *
- * * `to` - The account to mint tokens to; the transaction must also be signed by this
- * account
- * * `amount` - The amount of tokens to mint (remember to multiply by `decimals`!)
- */
-    async mint({ to, amount }, options = {}) {
+    };
+    mint = async ({ to, amount }, options = {}) => {
         return await invoke({
             method: 'mint',
-            args: this.spec.funcArgsToScVals("mint", { to, amount }),
+            args: this.spec.funcArgsToScVals("mint", { to: new Address(to), amount }),
             ...options,
             ...this.options,
             parseResultXdr: () => { },
         });
-    }
-    async setAdmin({ new_admin }, options = {}) {
+    };
+    setAdmin = async ({ new_admin }, options = {}) => {
         return await invoke({
             method: 'set_admin',
-            args: this.spec.funcArgsToScVals("set_admin", { new_admin }),
+            args: this.spec.funcArgsToScVals("set_admin", { new_admin: new Address(new_admin) }),
             ...options,
             ...this.options,
             parseResultXdr: () => { },
         });
-    }
-    async allowance({ from, spender }, options = {}) {
+    };
+    allowance = async ({ from, spender }, options = {}) => {
         return await invoke({
             method: 'allowance',
-            args: this.spec.funcArgsToScVals("allowance", { from, spender }),
+            args: this.spec.funcArgsToScVals("allowance", { from: new Address(from), spender: new Address(spender) }),
             ...options,
             ...this.options,
             parseResultXdr: (xdr) => {
                 return this.spec.funcResToNative("allowance", xdr);
             },
         });
-    }
-    async approve({ from, spender, amount, expiration_ledger }, options = {}) {
+    };
+    approve = async ({ from, spender, amount, expiration_ledger }, options = {}) => {
         return await invoke({
             method: 'approve',
-            args: this.spec.funcArgsToScVals("approve", { from, spender, amount, expiration_ledger }),
+            args: this.spec.funcArgsToScVals("approve", { from: new Address(from), spender: new Address(spender), amount, expiration_ledger }),
             ...options,
             ...this.options,
             parseResultXdr: () => { },
         });
-    }
-    async balance({ id }, options = {}) {
+    };
+    balance = async ({ id }, options = {}) => {
         return await invoke({
             method: 'balance',
-            args: this.spec.funcArgsToScVals("balance", { id }),
+            args: this.spec.funcArgsToScVals("balance", { id: new Address(id) }),
             ...options,
             ...this.options,
             parseResultXdr: (xdr) => {
                 return this.spec.funcResToNative("balance", xdr);
             },
         });
-    }
-    async spendableBalance({ id }, options = {}) {
-        return await invoke({
-            method: 'spendable_balance',
-            args: this.spec.funcArgsToScVals("spendable_balance", { id }),
-            ...options,
-            ...this.options,
-            parseResultXdr: (xdr) => {
-                return this.spec.funcResToNative("spendable_balance", xdr);
-            },
-        });
-    }
-    async transfer({ from, to, amount }, options = {}) {
+    };
+    transfer = async ({ from, to, amount }, options = {}) => {
         return await invoke({
             method: 'transfer',
-            args: this.spec.funcArgsToScVals("transfer", { from, to, amount }),
+            args: this.spec.funcArgsToScVals("transfer", { from: new Address(from), to: new Address(to), amount }),
             ...options,
             ...this.options,
             parseResultXdr: () => { },
         });
-    }
-    async transferFrom({ spender, from, to, amount }, options = {}) {
+    };
+    transferFrom = async ({ spender, from, to, amount }, options = {}) => {
         return await invoke({
             method: 'transfer_from',
-            args: this.spec.funcArgsToScVals("transfer_from", { spender, from, to, amount }),
+            args: this.spec.funcArgsToScVals("transfer_from", { spender: new Address(spender), from: new Address(from), to: new Address(to), amount }),
             ...options,
             ...this.options,
             parseResultXdr: () => { },
         });
-    }
-    async burn({ from, amount }, options = {}) {
+    };
+    burn = async ({ from, amount }, options = {}) => {
         return await invoke({
             method: 'burn',
-            args: this.spec.funcArgsToScVals("burn", { from, amount }),
+            args: this.spec.funcArgsToScVals("burn", { from: new Address(from), amount }),
             ...options,
             ...this.options,
             parseResultXdr: () => { },
         });
-    }
-    async burnFrom({ spender, from, amount }, options = {}) {
+    };
+    burnFrom = async ({ spender, from, amount }, options = {}) => {
         return await invoke({
             method: 'burn_from',
-            args: this.spec.funcArgsToScVals("burn_from", { spender, from, amount }),
+            args: this.spec.funcArgsToScVals("burn_from", { spender: new Address(spender), from: new Address(from), amount }),
             ...options,
             ...this.options,
             parseResultXdr: () => { },
         });
-    }
-    async decimals(options = {}) {
+    };
+    decimals = async (options = {}) => {
         return await invoke({
             method: 'decimals',
             args: this.spec.funcArgsToScVals("decimals", {}),
@@ -219,8 +198,8 @@ export class Contract {
                 return this.spec.funcResToNative("decimals", xdr);
             },
         });
-    }
-    async name(options = {}) {
+    };
+    name = async (options = {}) => {
         return await invoke({
             method: 'name',
             args: this.spec.funcArgsToScVals("name", {}),
@@ -230,8 +209,8 @@ export class Contract {
                 return this.spec.funcResToNative("name", xdr);
             },
         });
-    }
-    async symbol(options = {}) {
+    };
+    symbol = async (options = {}) => {
         return await invoke({
             method: 'symbol',
             args: this.spec.funcArgsToScVals("symbol", {}),
@@ -241,5 +220,5 @@ export class Contract {
                 return this.spec.funcResToNative("symbol", xdr);
             },
         });
-    }
+    };
 }

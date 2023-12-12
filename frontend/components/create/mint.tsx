@@ -10,8 +10,7 @@ import { useState } from 'react'
 import { useAccount } from '@/hooks'
 import {
   Contract as tokenContract,
-  networks as tokenNetwork,
-  Address
+  networks as tokenNetwork
 } from 'mock-client'
 import freighter from '@stellar/freighter-api'
 
@@ -39,33 +38,41 @@ export function MintToken() {
       return
     }
 
-    const amount = BigInt(10000000000000)
+    const amount = BigInt(100000000000000)
 
     const mintTokenRequest = {
-      to: Address.fromString(account.address),
+      to: account.address,
       amount: amount,
     }
 
     console.log('mintTokenRequest', mintTokenRequest)
 
     await tokenClient.mint(mintTokenRequest, {
-      fee: 100,
-      secondsToWait: 20,
+      fee: 1000,
       responseType: 'full',
     })
       .then((result: any) => {
         console.log('result', result)
-        toast({
-          variant: 'default',
-          title: 'Success!',
-          description: 'Tokens successfully minted.',
-        })
+        if (result.status !== 'SUCCESS') {
+          toast({
+            variant: 'destructive',
+            title: 'Uh oh! Something went wrong.',
+            description: 'An error occured.',
+          })
+        } else {
+          toast({
+            variant: 'default',
+            title: 'Success!',
+            description: 'Tokens successfully minted.',
+          })
+        }
       })
       .catch((error: any) => {
+        console.log('error', error)
         toast({
           variant: 'destructive',
           title: 'Uh oh! Something went wrong.',
-          description: `${error}`,
+          description: `${error?.message ?? 'Unknown error'}`,
         })
       })
       .finally(() => {
@@ -78,7 +85,7 @@ export function MintToken() {
       <CardHeader className="flex items-center justify-between space-y-2">
         <CardTitle>Mint Mock Token</CardTitle>
         <CardDescription className='text-center'>
-          Click the below button to mint 1,000,000 Mock Tokens to your wallet.
+          Click the below button to mint 10,000,000 Mock Tokens to your wallet.
         </CardDescription>
       </CardHeader>
       <CardContent className="grid gap-6">
