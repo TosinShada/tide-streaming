@@ -39,10 +39,10 @@ export function MintToken() {
       return
     }
 
-    const amount = BigInt(10000000000000)
+    const amount = BigInt(10000000000)
 
     const mintTokenRequest = {
-      to: Address.fromString(account.address),
+      to: account.address,
       amount: amount,
     }
 
@@ -62,10 +62,11 @@ export function MintToken() {
         })
       })
       .catch((error: any) => {
+        console.log('error', error)
         toast({
           variant: 'destructive',
           title: 'Uh oh! Something went wrong.',
-          description: `${error}`,
+          description: `${error.message}`,
         })
       })
       .finally(() => {
@@ -78,7 +79,7 @@ export function MintToken() {
       <CardHeader className="flex items-center justify-between space-y-2">
         <CardTitle>Mint Mock Token</CardTitle>
         <CardDescription className='text-center'>
-          Click the below button to mint 1,000,000 Mock Tokens to your wallet.
+          Click the below button to mint 1,000 Mock Tokens to your wallet.
         </CardDescription>
       </CardHeader>
       <CardContent className="grid gap-6">

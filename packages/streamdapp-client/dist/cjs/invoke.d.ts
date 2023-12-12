@@ -3,6 +3,8 @@ import { SorobanRpc } from "soroban-client";
 import type { Memo, MemoType, Operation, Transaction, xdr } from "soroban-client";
 import type { ClassOptions, MethodOptions, ResponseTypes, Wallet } from "./method-options.js";
 export type Tx = Transaction<Memo<MemoType>, Operation[]>;
+export declare class SendFailedError extends Error {
+}
 export declare class NotImplementedError extends Error {
 }
 type Simulation = SorobanRpc.SimulateTransactionResponse;

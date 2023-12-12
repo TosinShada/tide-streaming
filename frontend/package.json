@@ -47,7 +47,7 @@
     "react-dom": "18.2.0",
     "react-hook-form": "^7.45.4",
     "recharts": "^2.7.3",
-    "soroban-client": "1.0.0-beta.2",
+    "soroban-client": "1.0.0-beta.3",
     "mock-client": "./packages/mock-client",
     "streamdapp-client": "./packages/streamdapp-client",
     "tailwind-merge": "^1.14.0",

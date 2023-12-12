@@ -1,8 +1,11 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.sendTx = exports.signTx = exports.invoke = exports.NotImplementedError = void 0;
+exports.sendTx = exports.signTx = exports.invoke = exports.NotImplementedError = exports.SendFailedError = void 0;
 const SorobanClient = require("soroban-client");
 const soroban_client_1 = require("soroban-client");
+class SendFailedError extends Error {
+}
+exports.SendFailedError = SendFailedError;
 /**
  * Get account details from the Soroban network for the publicKey currently
  * selected in Freighter. If not connected to Freighter, return null.
@@ -23,7 +26,7 @@ exports.NotImplementedError = NotImplementedError;
 // defined this way so typeahead shows full union, not named alias
 let someRpcResponse;
 async function invoke({ method, args = [], fee = 100, responseType, parseResultXdr, secondsToWait = 10, rpcUrl, networkPassphrase, contractId, wallet, }) {
-    wallet = wallet ?? (await Promise.resolve().then(() => require("@stellar/freighter-api")));
+    wallet = wallet ?? (await Promise.resolve().then(() => require("@stellar/freighter-api"))).default;
     let parse = parseResultXdr;
     const server = new SorobanClient.Server(rpcUrl, {
         allowHttp: rpcUrl.startsWith("http://"),
@@ -40,10 +43,7 @@ async function invoke({ method, args = [], fee = 100, responseType, parseResultX
         .addOperation(contract.call(method, ...args))
         .setTimeout(SorobanClient.TimeoutInfinite)
         .build();
-    let simulated = await server.simulateTransaction(tx);
-    if (soroban_client_1.SorobanRpc.isSimulationRestore(simulated)) {
-        simulated = await restoreAndRetry(simulated, walletAccount, tx, wallet, networkPassphrase, fee, server, contract, method, args);
-    }
+    const simulated = await server.simulateTransaction(tx);
     if (soroban_client_1.SorobanRpc.isSimulationError(simulated)) {
         throw new Error(simulated.error);
     }
@@ -84,49 +84,18 @@ async function invoke({ method, args = [], fee = 100, responseType, parseResultX
         return raw;
     }
     // if `sendTx` awaited the inclusion of the tx in the ledger, it used
-    // `getTransaction`, which has a `resultXdr` field
-    if ("resultXdr" in raw) {
-        const getResult = raw;
-        if (getResult.status !== soroban_client_1.SorobanRpc.GetTransactionStatus.SUCCESS) {
-            console.error('Transaction submission failed! Returning full RPC response.');
-            return raw;
-        }
-        return parse(raw.resultXdr.result().toXDR("base64"));
-    }
+    // `getTransaction`, which has a `returnValue` field
+    if ("returnValue" in raw)
+        return parse(raw.returnValue);
     // otherwise, it returned the result of `sendTransaction`
-    if ("errorResultXdr" in raw) {
-        const sendResult = raw;
-        return parse(sendResult.errorResultXdr);
+    if ("errorResult" in raw) {
+        throw new SendFailedError(`errorResult.result(): ${JSON.stringify(raw.errorResult?.result())}`);
     }
     // if neither of these are present, something went wrong
     console.error("Don't know how to parse result! Returning full RPC response.");
     return raw;
 }
 exports.invoke = invoke;
-async function restoreAndRetry(simulated, walletAccount, tx, wallet, networkPassphrase, fee, server, contract, method, args = []) {
-    if (!walletAccount) {
-        throw new Error("Not connected to Freighter");
-    }
-    let simulationFee = fee + parseInt(simulated.restorePreamble.minResourceFee);
-    const restoreTx = new SorobanClient.TransactionBuilder(walletAccount, { fee: simulationFee.toString() })
-        .setNetworkPassphrase(networkPassphrase)
-        .setSorobanData(simulated.restorePreamble.transactionData.build())
-        .addOperation(SorobanClient.Operation.restoreFootprint({}))
-        .build();
-    tx = await signTx(wallet, restoreTx, networkPassphrase);
-    const resp = await sendTx(tx, 20, server);
-    if (resp.status !== soroban_client_1.SorobanRpc.GetTransactionStatus.SUCCESS) {
-        throw new Error('Failed to restore transaction');
-    }
-    let retryTx = new SorobanClient.TransactionBuilder(walletAccount, {
-        fee: fee.toString(10),
-        networkPassphrase,
-    })
-        .addOperation(contract.call(method, ...args))
-        .setTimeout(SorobanClient.TimeoutInfinite)
-        .build();
-    return await server.simulateTransaction(retryTx);
-}
 /**
  * Sign a transaction with Freighter and return the fully-reconstructed
  * transaction ready to send with {@link sendTx}.

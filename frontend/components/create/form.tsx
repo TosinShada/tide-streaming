@@ -134,10 +134,10 @@ export function CreateStreamForm() {
     }
 
     const createStreamRequest = {
-      sender: Address.fromString(account.address),
-      recipient: Address.fromString(data.recipient),
+      sender: account.address,
+      recipient: data.recipient,
       amount: amount,
-      token_address: Address.fromString(data.tokenAddress),
+      token_address: data.tokenAddress,
       start_time: BigInt(from),
       stop_time: BigInt(to),
     }

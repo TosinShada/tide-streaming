@@ -92,13 +92,13 @@ function parseError(message: string): Err | undefined {
 export const networks = {
     futurenet: {
         networkPassphrase: "Test SDF Future Network ; October 2022",
-        contractId: "CDZZJRYVC6FKDESN7GT3OS22XVJNPDZIWXNGXOEROTNI7N3IJO5HNBM7",
+        contractId: "CCAZKAF6JE4FHTG2B7DMRK5SBOIXFQXWQGJ7HTMRR6MRG5CBL4C2MIWV",
     }
 } as const
 
 export interface AllowanceDataKey {
-  from: Address;
-  spender: Address;
+  from: string;
+  spender: string;
 }
 
 export interface AllowanceValue {
@@ -106,7 +106,7 @@ export interface AllowanceValue {
   expiration_ledger: u32;
 }
 
-export type DataKey = {tag: "Allowance", values: readonly [AllowanceDataKey]} | {tag: "Balance", values: readonly [Address]} | {tag: "Nonce", values: readonly [Address]} | {tag: "State", values: readonly [Address]} | {tag: "Admin", values: void};
+export type DataKey = {tag: "Allowance", values: readonly [AllowanceDataKey]} | {tag: "Balance", values: readonly [string]} | {tag: "Nonce", values: readonly [string]} | {tag: "State", values: readonly [string]} | {tag: "Admin", values: void};
 
 export interface TokenMetadata {
   decimal: u32;
@@ -123,12 +123,11 @@ export class Contract {
     constructor(public readonly options: ClassOptions) {
         this.spec = new ContractSpec([
             "AAAAAAAAAAAAAAAKaW5pdGlhbGl6ZQAAAAAABAAAAAAAAAAFYWRtaW4AAAAAAAATAAAAAAAAAAdkZWNpbWFsAAAAAAQAAAAAAAAABG5hbWUAAAAQAAAAAAAAAAZzeW1ib2wAAAAAABAAAAAA",
-        "AAAAAAAAANRNaW50IHlvdXJzZWxmIHNvbWUgdG9rZW5zIQoKIyBBcmd1bWVudHMKCiogYHRvYCAtIFRoZSBhY2NvdW50IHRvIG1pbnQgdG9rZW5zIHRvOyB0aGUgdHJhbnNhY3Rpb24gbXVzdCBhbHNvIGJlIHNpZ25lZCBieSB0aGlzCmFjY291bnQKKiBgYW1vdW50YCAtIFRoZSBhbW91bnQgb2YgdG9rZW5zIHRvIG1pbnQgKHJlbWVtYmVyIHRvIG11bHRpcGx5IGJ5IGBkZWNpbWFsc2AhKQAAAARtaW50AAAAAgAAAAAAAAACdG8AAAAAABMAAAAAAAAABmFtb3VudAAAAAAACwAAAAA=",
+        "AAAAAAAAAAAAAAAEbWludAAAAAIAAAAAAAAAAnRvAAAAAAATAAAAAAAAAAZhbW91bnQAAAAAAAsAAAAA",
         "AAAAAAAAAAAAAAAJc2V0X2FkbWluAAAAAAAAAQAAAAAAAAAJbmV3X2FkbWluAAAAAAAAEwAAAAA=",
         "AAAAAAAAAAAAAAAJYWxsb3dhbmNlAAAAAAAAAgAAAAAAAAAEZnJvbQAAABMAAAAAAAAAB3NwZW5kZXIAAAAAEwAAAAEAAAAL",
         "AAAAAAAAAAAAAAAHYXBwcm92ZQAAAAAEAAAAAAAAAARmcm9tAAAAEwAAAAAAAAAHc3BlbmRlcgAAAAATAAAAAAAAAAZhbW91bnQAAAAAAAsAAAAAAAAAEWV4cGlyYXRpb25fbGVkZ2VyAAAAAAAABAAAAAA=",
         "AAAAAAAAAAAAAAAHYmFsYW5jZQAAAAABAAAAAAAAAAJpZAAAAAAAEwAAAAEAAAAL",
-        "AAAAAAAAAAAAAAARc3BlbmRhYmxlX2JhbGFuY2UAAAAAAAABAAAAAAAAAAJpZAAAAAAAEwAAAAEAAAAL",
         "AAAAAAAAAAAAAAAIdHJhbnNmZXIAAAADAAAAAAAAAARmcm9tAAAAEwAAAAAAAAACdG8AAAAAABMAAAAAAAAABmFtb3VudAAAAAAACwAAAAA=",
         "AAAAAAAAAAAAAAANdHJhbnNmZXJfZnJvbQAAAAAAAAQAAAAAAAAAB3NwZW5kZXIAAAAAEwAAAAAAAAAEZnJvbQAAABMAAAAAAAAAAnRvAAAAAAATAAAAAAAAAAZhbW91bnQAAAAAAAsAAAAA",
         "AAAAAAAAAAAAAAAEYnVybgAAAAIAAAAAAAAABGZyb20AAAATAAAAAAAAAAZhbW91bnQAAAAAAAsAAAAA",
@@ -142,7 +141,7 @@ export class Contract {
         "AAAAAQAAAAAAAAAAAAAADVRva2VuTWV0YWRhdGEAAAAAAAADAAAAAAAAAAdkZWNpbWFsAAAAAAQAAAAAAAAABG5hbWUAAAAQAAAAAAAAAAZzeW1ib2wAAAAAABA="
             ]);
     }
-    async initialize<R extends ResponseTypes = undefined>({admin, decimal, name, symbol}: {admin: Address, decimal: u32, name: string, symbol: string}, options: {
+    initialize = async <R extends ResponseTypes = undefined>({admin, decimal, name, symbol}: {admin: string, decimal: u32, name: string, symbol: string}, options: {
         /**
          * The fee to pay for the transaction. Default: 100.
          */
@@ -159,10 +158,10 @@ export class Contract {
          * If the simulation shows that this invocation requires auth/signing, `invoke` will wait `secondsToWait` seconds for the transaction to complete before giving up and returning the incomplete {@link SorobanClient.SorobanRpc.GetTransactionResponse} results (or attempting to parse their probably-missing XDR with `parseResultXdr`, depending on `responseType`). Set this to `0` to skip waiting altogether, which will return you {@link SorobanClient.SorobanRpc.SendTransactionResponse} more quickly, before the transaction has time to be included in the ledger. Default: 10.
          */
         secondsToWait?: number
-    } = {}) {
+    } = {}) => {
                     return await invoke({
             method: 'initialize',
-            args: this.spec.funcArgsToScVals("initialize", {admin, decimal, name, symbol}),
+            args: this.spec.funcArgsToScVals("initialize", {admin: new Address(admin), decimal, name, symbol}),
             ...options,
             ...this.options,
             parseResultXdr: () => {},
@@ -170,16 +169,7 @@ export class Contract {
     }
 
 
-    /**
- * Mint yourself some tokens!
- * 
- * # Arguments
- * 
- * * `to` - The account to mint tokens to; the transaction must also be signed by this
- * account
- * * `amount` - The amount of tokens to mint (remember to multiply by `decimals`!)
- */
-async mint<R extends ResponseTypes = undefined>({to, amount}: {to: Address, amount: i128}, options: {
+    mint = async <R extends ResponseTypes = undefined>({to, amount}: {to: string, amount: i128}, options: {
         /**
          * The fee to pay for the transaction. Default: 100.
          */
@@ -196,10 +186,10 @@ async mint<R extends ResponseTypes = undefined>({to, amount}: {to: Address, amou
          * If the simulation shows that this invocation requires auth/signing, `invoke` will wait `secondsToWait` seconds for the transaction to complete before giving up and returning the incomplete {@link SorobanClient.SorobanRpc.GetTransactionResponse} results (or attempting to parse their probably-missing XDR with `parseResultXdr`, depending on `responseType`). Set this to `0` to skip waiting altogether, which will return you {@link SorobanClient.SorobanRpc.SendTransactionResponse} more quickly, before the transaction has time to be included in the ledger. Default: 10.
          */
         secondsToWait?: number
-    } = {}) {
+    } = {}) => {
                     return await invoke({
             method: 'mint',
-            args: this.spec.funcArgsToScVals("mint", {to, amount}),
+            args: this.spec.funcArgsToScVals("mint", {to: new Address(to), amount}),
             ...options,
             ...this.options,
             parseResultXdr: () => {},
@@ -207,7 +197,7 @@ async mint<R extends ResponseTypes = undefined>({to, amount}: {to: Address, amou
     }
 
 
-    async setAdmin<R extends ResponseTypes = undefined>({new_admin}: {new_admin: Address}, options: {
+    setAdmin = async <R extends ResponseTypes = undefined>({new_admin}: {new_admin: string}, options: {
         /**
          * The fee to pay for the transaction. Default: 100.
          */
@@ -224,10 +214,10 @@ async mint<R extends ResponseTypes = undefined>({to, amount}: {to: Address, amou
          * If the simulation shows that this invocation requires auth/signing, `invoke` will wait `secondsToWait` seconds for the transaction to complete before giving up and returning the incomplete {@link SorobanClient.SorobanRpc.GetTransactionResponse} results (or attempting to parse their probably-missing XDR with `parseResultXdr`, depending on `responseType`). Set this to `0` to skip waiting altogether, which will return you {@link SorobanClient.SorobanRpc.SendTransactionResponse} more quickly, before the transaction has time to be included in the ledger. Default: 10.
          */
         secondsToWait?: number
-    } = {}) {
+    } = {}) => {
                     return await invoke({
             method: 'set_admin',
-            args: this.spec.funcArgsToScVals("set_admin", {new_admin}),
+            args: this.spec.funcArgsToScVals("set_admin", {new_admin: new Address(new_admin)}),
             ...options,
             ...this.options,
             parseResultXdr: () => {},
@@ -235,7 +225,7 @@ async mint<R extends ResponseTypes = undefined>({to, amount}: {to: Address, amou
     }
 
 
-    async allowance<R extends ResponseTypes = undefined>({from, spender}: {from: Address, spender: Address}, options: {
+    allowance = async <R extends ResponseTypes = undefined>({from, spender}: {from: string, spender: string}, options: {
         /**
          * The fee to pay for the transaction. Default: 100.
          */
@@ -252,10 +242,10 @@ async mint<R extends ResponseTypes = undefined>({to, amount}: {to: Address, amou
          * If the simulation shows that this invocation requires auth/signing, `invoke` will wait `secondsToWait` seconds for the transaction to complete before giving up and returning the incomplete {@link SorobanClient.SorobanRpc.GetTransactionResponse} results (or attempting to parse their probably-missing XDR with `parseResultXdr`, depending on `responseType`). Set this to `0` to skip waiting altogether, which will return you {@link SorobanClient.SorobanRpc.SendTransactionResponse} more quickly, before the transaction has time to be included in the ledger. Default: 10.
          */
         secondsToWait?: number
-    } = {}) {
+    } = {}) => {
                     return await invoke({
             method: 'allowance',
-            args: this.spec.funcArgsToScVals("allowance", {from, spender}),
+            args: this.spec.funcArgsToScVals("allowance", {from: new Address(from), spender: new Address(spender)}),
             ...options,
             ...this.options,
             parseResultXdr: (xdr): i128 => {
@@ -265,7 +255,7 @@ async mint<R extends ResponseTypes = undefined>({to, amount}: {to: Address, amou
     }
 
 
-    async approve<R extends ResponseTypes = undefined>({from, spender, amount, expiration_ledger}: {from: Address, spender: Address, amount: i128, expiration_ledger: u32}, options: {
+    approve = async <R extends ResponseTypes = undefined>({from, spender, amount, expiration_ledger}: {from: string, spender: string, amount: i128, expiration_ledger: u32}, options: {
         /**
          * The fee to pay for the transaction. Default: 100.
          */
@@ -282,10 +272,10 @@ async mint<R extends ResponseTypes = undefined>({to, amount}: {to: Address, amou
          * If the simulation shows that this invocation requires auth/signing, `invoke` will wait `secondsToWait` seconds for the transaction to complete before giving up and returning the incomplete {@link SorobanClient.SorobanRpc.GetTransactionResponse} results (or attempting to parse their probably-missing XDR with `parseResultXdr`, depending on `responseType`). Set this to `0` to skip waiting altogether, which will return you {@link SorobanClient.SorobanRpc.SendTransactionResponse} more quickly, before the transaction has time to be included in the ledger. Default: 10.
          */
         secondsToWait?: number
-    } = {}) {
+    } = {}) => {
                     return await invoke({
             method: 'approve',
-            args: this.spec.funcArgsToScVals("approve", {from, spender, amount, expiration_ledger}),
+            args: this.spec.funcArgsToScVals("approve", {from: new Address(from), spender: new Address(spender), amount, expiration_ledger}),
             ...options,
             ...this.options,
             parseResultXdr: () => {},
@@ -293,7 +283,7 @@ async mint<R extends ResponseTypes = undefined>({to, amount}: {to: Address, amou
     }
 
 
-    async balance<R extends ResponseTypes = undefined>({id}: {id: Address}, options: {
+    balance = async <R extends ResponseTypes = undefined>({id}: {id: string}, options: {
         /**
          * The fee to pay for the transaction. Default: 100.
          */
@@ -310,10 +300,10 @@ async mint<R extends ResponseTypes = undefined>({to, amount}: {to: Address, amou
          * If the simulation shows that this invocation requires auth/signing, `invoke` will wait `secondsToWait` seconds for the transaction to complete before giving up and returning the incomplete {@link SorobanClient.SorobanRpc.GetTransactionResponse} results (or attempting to parse their probably-missing XDR with `parseResultXdr`, depending on `responseType`). Set this to `0` to skip waiting altogether, which will return you {@link SorobanClient.SorobanRpc.SendTransactionResponse} more quickly, before the transaction has time to be included in the ledger. Default: 10.
          */
         secondsToWait?: number
-    } = {}) {
+    } = {}) => {
                     return await invoke({
             method: 'balance',
-            args: this.spec.funcArgsToScVals("balance", {id}),
+            args: this.spec.funcArgsToScVals("balance", {id: new Address(id)}),
             ...options,
             ...this.options,
             parseResultXdr: (xdr): i128 => {
@@ -323,37 +313,7 @@ async mint<R extends ResponseTypes = undefined>({to, amount}: {to: Address, amou
     }
 
 
-    async spendableBalance<R extends ResponseTypes = undefined>({id}: {id: Address}, options: {
-        /**
-         * The fee to pay for the transaction. Default: 100.
-         */
-        fee?: number
-        /**
-         * What type of response to return.
-         *
-         *   - `undefined`, the default, parses the returned XDR as `i128`. Runs preflight, checks to see if auth/signing is required, and sends the transaction if so. If there's no error and `secondsToWait` is positive, awaits the finalized transaction.
-         *   - `'simulated'` will only simulate/preflight the transaction, even if it's a change/set method that requires auth/signing. Returns full preflight info.
-         *   - `'full'` return the full RPC response, meaning either 1. the preflight info, if it's a view/read method that doesn't require auth/signing, or 2. the `sendTransaction` response, if there's a problem with sending the transaction or if you set `secondsToWait` to 0, or 3. the `getTransaction` response, if it's a change method with no `sendTransaction` errors and a positive `secondsToWait`.
-         */
-        responseType?: R
-        /**
-         * If the simulation shows that this invocation requires auth/signing, `invoke` will wait `secondsToWait` seconds for the transaction to complete before giving up and returning the incomplete {@link SorobanClient.SorobanRpc.GetTransactionResponse} results (or attempting to parse their probably-missing XDR with `parseResultXdr`, depending on `responseType`). Set this to `0` to skip waiting altogether, which will return you {@link SorobanClient.SorobanRpc.SendTransactionResponse} more quickly, before the transaction has time to be included in the ledger. Default: 10.
-         */
-        secondsToWait?: number
-    } = {}) {
-                    return await invoke({
-            method: 'spendable_balance',
-            args: this.spec.funcArgsToScVals("spendable_balance", {id}),
-            ...options,
-            ...this.options,
-            parseResultXdr: (xdr): i128 => {
-                return this.spec.funcResToNative("spendable_balance", xdr);
-            },
-        });
-    }
-
-
-    async transfer<R extends ResponseTypes = undefined>({from, to, amount}: {from: Address, to: Address, amount: i128}, options: {
+    transfer = async <R extends ResponseTypes = undefined>({from, to, amount}: {from: string, to: string, amount: i128}, options: {
         /**
          * The fee to pay for the transaction. Default: 100.
          */
@@ -370,10 +330,10 @@ async mint<R extends ResponseTypes = undefined>({to, amount}: {to: Address, amou
          * If the simulation shows that this invocation requires auth/signing, `invoke` will wait `secondsToWait` seconds for the transaction to complete before giving up and returning the incomplete {@link SorobanClient.SorobanRpc.GetTransactionResponse} results (or attempting to parse their probably-missing XDR with `parseResultXdr`, depending on `responseType`). Set this to `0` to skip waiting altogether, which will return you {@link SorobanClient.SorobanRpc.SendTransactionResponse} more quickly, before the transaction has time to be included in the ledger. Default: 10.
          */
         secondsToWait?: number
-    } = {}) {
+    } = {}) => {
                     return await invoke({
             method: 'transfer',
-            args: this.spec.funcArgsToScVals("transfer", {from, to, amount}),
+            args: this.spec.funcArgsToScVals("transfer", {from: new Address(from), to: new Address(to), amount}),
             ...options,
             ...this.options,
             parseResultXdr: () => {},
@@ -381,7 +341,7 @@ async mint<R extends ResponseTypes = undefined>({to, amount}: {to: Address, amou
     }
 
 
-    async transferFrom<R extends ResponseTypes = undefined>({spender, from, to, amount}: {spender: Address, from: Address, to: Address, amount: i128}, options: {
+    transferFrom = async <R extends ResponseTypes = undefined>({spender, from, to, amount}: {spender: string, from: string, to: string, amount: i128}, options: {
         /**
          * The fee to pay for the transaction. Default: 100.
          */
@@ -398,10 +358,10 @@ async mint<R extends ResponseTypes = undefined>({to, amount}: {to: Address, amou
          * If the simulation shows that this invocation requires auth/signing, `invoke` will wait `secondsToWait` seconds for the transaction to complete before giving up and returning the incomplete {@link SorobanClient.SorobanRpc.GetTransactionResponse} results (or attempting to parse their probably-missing XDR with `parseResultXdr`, depending on `responseType`). Set this to `0` to skip waiting altogether, which will return you {@link SorobanClient.SorobanRpc.SendTransactionResponse} more quickly, before the transaction has time to be included in the ledger. Default: 10.
          */
         secondsToWait?: number
-    } = {}) {
+    } = {}) => {
                     return await invoke({
             method: 'transfer_from',
-            args: this.spec.funcArgsToScVals("transfer_from", {spender, from, to, amount}),
+            args: this.spec.funcArgsToScVals("transfer_from", {spender: new Address(spender), from: new Address(from), to: new Address(to), amount}),
             ...options,
             ...this.options,
             parseResultXdr: () => {},
@@ -409,7 +369,7 @@ async mint<R extends ResponseTypes = undefined>({to, amount}: {to: Address, amou
     }
 
 
-    async burn<R extends ResponseTypes = undefined>({from, amount}: {from: Address, amount: i128}, options: {
+    burn = async <R extends ResponseTypes = undefined>({from, amount}: {from: string, amount: i128}, options: {
         /**
          * The fee to pay for the transaction. Default: 100.
          */
@@ -426,10 +386,10 @@ async mint<R extends ResponseTypes = undefined>({to, amount}: {to: Address, amou
          * If the simulation shows that this invocation requires auth/signing, `invoke` will wait `secondsToWait` seconds for the transaction to complete before giving up and returning the incomplete {@link SorobanClient.SorobanRpc.GetTransactionResponse} results (or attempting to parse their probably-missing XDR with `parseResultXdr`, depending on `responseType`). Set this to `0` to skip waiting altogether, which will return you {@link SorobanClient.SorobanRpc.SendTransactionResponse} more quickly, before the transaction has time to be included in the ledger. Default: 10.
          */
         secondsToWait?: number
-    } = {}) {
+    } = {}) => {
                     return await invoke({
             method: 'burn',
-            args: this.spec.funcArgsToScVals("burn", {from, amount}),
+            args: this.spec.funcArgsToScVals("burn", {from: new Address(from), amount}),
             ...options,
             ...this.options,
             parseResultXdr: () => {},
@@ -437,7 +397,7 @@ async mint<R extends ResponseTypes = undefined>({to, amount}: {to: Address, amou
     }
 
 
-    async burnFrom<R extends ResponseTypes = undefined>({spender, from, amount}: {spender: Address, from: Address, amount: i128}, options: {
+    burnFrom = async <R extends ResponseTypes = undefined>({spender, from, amount}: {spender: string, from: string, amount: i128}, options: {
         /**
          * The fee to pay for the transaction. Default: 100.
          */
@@ -454,10 +414,10 @@ async mint<R extends ResponseTypes = undefined>({to, amount}: {to: Address, amou
          * If the simulation shows that this invocation requires auth/signing, `invoke` will wait `secondsToWait` seconds for the transaction to complete before giving up and returning the incomplete {@link SorobanClient.SorobanRpc.GetTransactionResponse} results (or attempting to parse their probably-missing XDR with `parseResultXdr`, depending on `responseType`). Set this to `0` to skip waiting altogether, which will return you {@link SorobanClient.SorobanRpc.SendTransactionResponse} more quickly, before the transaction has time to be included in the ledger. Default: 10.
          */
         secondsToWait?: number
-    } = {}) {
+    } = {}) => {
                     return await invoke({
             method: 'burn_from',
-            args: this.spec.funcArgsToScVals("burn_from", {spender, from, amount}),
+            args: this.spec.funcArgsToScVals("burn_from", {spender: new Address(spender), from: new Address(from), amount}),
             ...options,
             ...this.options,
             parseResultXdr: () => {},
@@ -465,7 +425,7 @@ async mint<R extends ResponseTypes = undefined>({to, amount}: {to: Address, amou
     }
 
 
-    async decimals<R extends ResponseTypes = undefined>(options: {
+    decimals = async <R extends ResponseTypes = undefined>(options: {
         /**
          * The fee to pay for the transaction. Default: 100.
          */
@@ -482,7 +442,7 @@ async mint<R extends ResponseTypes = undefined>({to, amount}: {to: Address, amou
          * If the simulation shows that this invocation requires auth/signing, `invoke` will wait `secondsToWait` seconds for the transaction to complete before giving up and returning the incomplete {@link SorobanClient.SorobanRpc.GetTransactionResponse} results (or attempting to parse their probably-missing XDR with `parseResultXdr`, depending on `responseType`). Set this to `0` to skip waiting altogether, which will return you {@link SorobanClient.SorobanRpc.SendTransactionResponse} more quickly, before the transaction has time to be included in the ledger. Default: 10.
          */
         secondsToWait?: number
-    } = {}) {
+    } = {}) => {
                     return await invoke({
             method: 'decimals',
             args: this.spec.funcArgsToScVals("decimals", {}),
@@ -495,7 +455,7 @@ async mint<R extends ResponseTypes = undefined>({to, amount}: {to: Address, amou
     }
 
 
-    async name<R extends ResponseTypes = undefined>(options: {
+    name = async <R extends ResponseTypes = undefined>(options: {
         /**
          * The fee to pay for the transaction. Default: 100.
          */
@@ -512,7 +472,7 @@ async mint<R extends ResponseTypes = undefined>({to, amount}: {to: Address, amou
          * If the simulation shows that this invocation requires auth/signing, `invoke` will wait `secondsToWait` seconds for the transaction to complete before giving up and returning the incomplete {@link SorobanClient.SorobanRpc.GetTransactionResponse} results (or attempting to parse their probably-missing XDR with `parseResultXdr`, depending on `responseType`). Set this to `0` to skip waiting altogether, which will return you {@link SorobanClient.SorobanRpc.SendTransactionResponse} more quickly, before the transaction has time to be included in the ledger. Default: 10.
          */
         secondsToWait?: number
-    } = {}) {
+    } = {}) => {
                     return await invoke({
             method: 'name',
             args: this.spec.funcArgsToScVals("name", {}),
@@ -525,7 +485,7 @@ async mint<R extends ResponseTypes = undefined>({to, amount}: {to: Address, amou
     }
 
 
-    async symbol<R extends ResponseTypes = undefined>(options: {
+    symbol = async <R extends ResponseTypes = undefined>(options: {
         /**
          * The fee to pay for the transaction. Default: 100.
          */
@@ -542,7 +502,7 @@ async mint<R extends ResponseTypes = undefined>({to, amount}: {to: Address, amou
          * If the simulation shows that this invocation requires auth/signing, `invoke` will wait `secondsToWait` seconds for the transaction to complete before giving up and returning the incomplete {@link SorobanClient.SorobanRpc.GetTransactionResponse} results (or attempting to parse their probably-missing XDR with `parseResultXdr`, depending on `responseType`). Set this to `0` to skip waiting altogether, which will return you {@link SorobanClient.SorobanRpc.SendTransactionResponse} more quickly, before the transaction has time to be included in the ledger. Default: 10.
          */
         secondsToWait?: number
-    } = {}) {
+    } = {}) => {
                     return await invoke({
             method: 'symbol',
             args: this.spec.funcArgsToScVals("symbol", {}),

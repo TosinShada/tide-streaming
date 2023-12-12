@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react'
 import {
   Contract as tokenContract,
-  networks as tokenNetwork,
-  Address
+  networks as tokenNetwork
 } from 'mock-client'
 import {
   Contract as streamContract,
@@ -39,12 +38,12 @@ export function useGetStream() {
 
   useEffect(() => {
     Promise.all([
-      tokenClient.balance({ id: Address.fromString(tokenNetwork.futurenet.contractId) }),
+      tokenClient.balance({ id: tokenNetwork.futurenet.contractId }),
       tokenClient.decimals(),
       tokenClient.name(),
       tokenClient.symbol(),
 
-      streamClient.getStreamsByUser({ caller: Address.fromString(account?.address || 'GDZDBDNC2HX5FTQQJE64LJBEI4PO4BXQX25ASGUOCK4H3VBW6GCR45RR') }),
+      streamClient.getStreamsByUser({ caller: account?.address || 'GDZDBDNC2HX5FTQQJE64LJBEI4PO4BXQX25ASGUOCK4H3VBW6GCR45RR' }),
     ]).then(fetched => {
       setToken({
         balance: fetched[0],
