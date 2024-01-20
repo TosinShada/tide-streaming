@@ -4,7 +4,7 @@ import path from "node:path"
 
 const buildDir = "./dist"
 
-const { error, stderr } = spawnSync("tsc.cmd", ["-b", "./scripts/tsconfig.cjs.json", "./scripts/tsconfig.esm.json", "./scripts/tsconfig.types.json"], { stdio: "inherit" })
+const { error, stderr } = spawnSync("tsc", ["-b", "./scripts/tsconfig.cjs.json", "./scripts/tsconfig.esm.json", "./scripts/tsconfig.types.json"], { stdio: "inherit" })
 
 if (error) {
   console.error(stderr)

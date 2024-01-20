@@ -43,17 +43,15 @@ import moment from 'moment'
 import {
   Contract as streamContract,
   networks as streamNetwork,
-  Address
+  Address,
 } from 'streamdapp-client'
-import {
-  networks as tokenNetwork
-} from 'mock-client'
+import { networks as tokenNetwork } from 'mock-client'
 import freighter from '@stellar/freighter-api'
 
 const tokens = [
   {
     label: 'MCKT - Mock Token',
-    value: tokenNetwork.futurenet.contractId,
+    value: tokenNetwork.testnet.contractId,
   },
 ] as const
 
@@ -61,10 +59,9 @@ const accountFormSchema = z.object({
   tokenAddress: z.string({
     required_error: 'Please select a token.',
   }),
-  amount: z.coerce
-    .number({
-      required_error: 'Please enter an amount.',
-    }),
+  amount: z.coerce.number({
+    required_error: 'Please enter an amount.',
+  }),
   recipient: z.string({
     required_error: 'Please enter a wallet address.',
   }),
@@ -95,9 +92,9 @@ export function CreateStreamForm() {
   const { toast } = useToast()
 
   const streamClient = new streamContract({
-    contractId: streamNetwork.futurenet.contractId,
-    networkPassphrase: streamNetwork.futurenet.networkPassphrase,
-    rpcUrl: 'https://rpc-futurenet.stellar.org:443',
+    contractId: streamNetwork.testnet.contractId,
+    networkPassphrase: streamNetwork.testnet.networkPassphrase,
+    rpcUrl: 'https://soroban-testnet.stellar.org',
     wallet: freighter,
   })
 
@@ -128,7 +125,7 @@ export function CreateStreamForm() {
     const amount = BigInt(data.amount * 10 ** 7)
 
     // Handle when the current day is selected
-    var currentTimestamp = moment().unix();
+    var currentTimestamp = moment().unix()
     if (from < currentTimestamp) {
       from = currentTimestamp + 30
     }
@@ -142,40 +139,44 @@ export function CreateStreamForm() {
       stop_time: BigInt(to),
     }
 
-    // console.log('createStreamRequest', createStreamRequest)
-
-    await streamClient.createStream(createStreamRequest, {
-      fee: 1000,
-      responseType: 'full',
-    })
-      .then((result: any) => {
-        console.log('result', result)
-        if (result.status !== 'SUCCESS') {
-          toast({
-            variant: 'destructive',
-            title: 'Uh oh! Something went wrong.',
-            description: 'An error occured.',
+    await streamClient
+      .createStream(createStreamRequest)
+      .then(simulationResult => {
+        // Sign and send the transaction
+        simulationResult
+          .signAndSend()
+          .then(result => {
+            console.log('result', result)
+            toast({
+              variant: 'default',
+              title: 'Success!',
+              description: 'Stream created successfully.',
+            })
           })
-        } else {
-          toast({
-            variant: 'default',
-            title: 'Success!',
-            description: 'Stream created successfully.',
+          .catch((error: any) => {
+            console.log('error', error)
+            toast({
+              variant: 'destructive',
+              title: 'Uh oh! Something went wrong.',
+              description: `${error?.message ?? 'An error occured.'}`,
+            })
           })
-        }
+          .finally(() => {
+            setIsLoading(false)
+            form.reset(defaultValues)
+            setDate(defaultDate)
+          })
       })
       .catch((error: any) => {
         console.log('error', error)
-        toast({
-          variant: 'destructive',
-          title: 'Uh oh! Something went wrong.',
-          description: `${error?.message ?? 'Unknown error'}`,
-        })
-      })
-      .finally(() => {
         setIsLoading(false)
         form.reset(defaultValues)
         setDate(defaultDate)
+        toast({
+          variant: 'destructive',
+          title: 'Uh oh! Something went wrong.',
+          description: `${error?.message ?? 'An error occured.'}`,
+        })
       })
   }
 
@@ -214,11 +215,7 @@ export function CreateStreamForm() {
                     <FormItem>
                       <FormLabel>Amount</FormLabel>
                       <FormControl>
-                        <Input
-                          placeholder="1.00"
-                          type="number"
-                          {...field}
-                        />
+                        <Input placeholder="1.00" type="number" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>

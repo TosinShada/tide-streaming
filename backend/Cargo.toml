@@ -16,6 +16,6 @@ codegen-units = 1
 lto = true
 
 [workspace.dependencies]
-soroban-sdk = "20.0.0"
-soroban-token-sdk = "20.0.0"
+soroban-sdk = "20.0.3"
+soroban-token-sdk = "20.0.3"
 fixed-point-math = "0.0.2"

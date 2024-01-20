@@ -10,7 +10,7 @@ import { useState } from 'react'
 import { useAccount } from '@/hooks'
 import {
   Contract as tokenContract,
-  networks as tokenNetwork
+  networks as tokenNetwork,
 } from 'mock-client'
 import freighter from '@stellar/freighter-api'
 
@@ -20,9 +20,9 @@ export function MintToken() {
   const { toast } = useToast()
 
   const tokenClient = new tokenContract({
-    contractId: tokenNetwork.futurenet.contractId,
-    networkPassphrase: tokenNetwork.futurenet.networkPassphrase,
-    rpcUrl: 'https://rpc-futurenet.stellar.org:443',
+    contractId: tokenNetwork.testnet.contractId,
+    networkPassphrase: tokenNetwork.testnet.networkPassphrase,
+    rpcUrl: 'https://soroban-testnet.stellar.org',
     wallet: freighter,
   })
 
@@ -47,36 +47,41 @@ export function MintToken() {
 
     console.log('mintTokenRequest', mintTokenRequest)
 
-    await tokenClient.mint(mintTokenRequest, {
-      fee: 1000,
-      responseType: 'full',
-    })
-      .then((result: any) => {
-        console.log('result', result)
-        if (result.status !== 'SUCCESS') {
-          toast({
-            variant: 'destructive',
-            title: 'Uh oh! Something went wrong.',
-            description: 'An error occured.',
+    await tokenClient
+      .mint(mintTokenRequest)
+      .then(simulationResult => {
+        console.log('simulation result', simulationResult)
+        // Sign and send the transaction
+        simulationResult
+          .signAndSend()
+          .then(result => {
+            console.log('result', result)
+            toast({
+              variant: 'default',
+              title: 'Success!',
+              description: 'Tokens successfully minted.',
+            })
           })
-        } else {
-          toast({
-            variant: 'default',
-            title: 'Success!',
-            description: 'Tokens successfully minted.',
+          .catch((error: any) => {
+            console.log('error', error)
+            toast({
+              variant: 'destructive',
+              title: 'Uh oh! Something went wrong.',
+              description: `${error?.message ?? 'An error occured.'}`,
+            })
           })
-        }
+          .finally(() => {
+            setIsLoading(false)
+          })
       })
       .catch((error: any) => {
         console.log('error', error)
+        setIsLoading(false)
         toast({
           variant: 'destructive',
           title: 'Uh oh! Something went wrong.',
-          description: `${error?.message ?? 'Unknown error'}`,
+          description: `${error?.message ?? 'An error occured.'}`,
         })
-      })
-      .finally(() => {
-        setIsLoading(false)
       })
   }
 
@@ -84,17 +89,12 @@ export function MintToken() {
     <>
       <CardHeader className="flex items-center justify-between space-y-2">
         <CardTitle>Mint Mock Token</CardTitle>
-        <CardDescription className='text-center'>
+        <CardDescription className="text-center">
           Click the below button to mint 10,000,000 Mock Tokens to your wallet.
         </CardDescription>
       </CardHeader>
       <CardContent className="grid gap-6">
-        <Button 
-          type="submit" 
-          size="lg"
-          disabled={isLoading}
-          onClick={onSubmit}
-        >
+        <Button type="submit" size="lg" disabled={isLoading} onClick={onSubmit}>
           Mint Token
         </Button>
       </CardContent>

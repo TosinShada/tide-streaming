@@ -8,8 +8,8 @@ MOCK_TOKEN_ID="$(cat ./.stream-payment-dapp/mock_token_id)"
 
 echo Add the network to cli client
 soroban config network add \
-  --rpc-url "https://rpc-futurenet.stellar.org:443" \
-  --network-passphrase "Test SDF Future Network ; October 2022" "futurenet"
+  --rpc-url "https://soroban-testnet.stellar.org" \
+  --network-passphrase "Test SDF Network ; September 2015" "futurenet"
 
 ARGS="--network $NETWORK --source token-admin"
 

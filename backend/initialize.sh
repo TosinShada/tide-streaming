@@ -2,47 +2,15 @@
 
 set -e
 
-NETWORK="$1"
-
-SOROBAN_RPC_HOST="$2"
-
 if [[ -f "./.stream-payment-dapp/streamdapp_id" ]]; then
   echo "Found existing './.stream-payment-dapp' directory; already initialized."
   exit 0
 fi
 
-if [[ "$SOROBAN_RPC_HOST" == "" ]]; then
-  # If soroban-cli is called inside the soroban-preview docker container,
-  # it can call the stellar standalone container just using its name "stellar"
-  if [[ "$IS_USING_DOCKER" == "true" ]]; then
-    SOROBAN_RPC_HOST="http://stellar:8000"
-    SOROBAN_RPC_URL="$SOROBAN_RPC_HOST"
-  elif [[ "$NETWORK" == "futurenet" ]]; then
-    SOROBAN_RPC_HOST="https://rpc-futurenet.stellar.org:443"
-    SOROBAN_RPC_URL="$SOROBAN_RPC_HOST"
-  else
-     # assumes standalone on quickstart, which has the soroban/rpc path
-    SOROBAN_RPC_HOST="http://localhost:8000"
-    SOROBAN_RPC_URL="$SOROBAN_RPC_HOST/soroban/rpc"
-  fi
-else 
-  SOROBAN_RPC_URL="$SOROBAN_RPC_HOST"  
-fi
-
-case "$1" in
-standalone)
-  SOROBAN_NETWORK_PASSPHRASE="Standalone Network ; February 2017"
-  FRIENDBOT_URL="$SOROBAN_RPC_HOST/friendbot"
-  ;;
-futurenet)
-  SOROBAN_NETWORK_PASSPHRASE="Test SDF Future Network ; October 2022"
-  FRIENDBOT_URL="https://friendbot-futurenet.stellar.org/"
-  ;;
-*)
-  echo "Usage: $0 standalone|futurenet [rpc-host]"
-  exit 1
-  ;;
-esac
+SOROBAN_RPC_URL="https://soroban-testnet.stellar.org"
+SOROBAN_NETWORK_PASSPHRASE="Test SDF Network ; September 2015"
+FRIENDBOT_URL="https://friendbot.stellar.org/"
+NETWORK="Testnet"
 
 echo "Using $NETWORK network"
 echo "  RPC URL: $SOROBAN_RPC_URL"

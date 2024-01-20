@@ -25,34 +25,34 @@ export function useGetStream() {
 
   useEffect(() => {
     const tokenClient = new tokenContract({
-      contractId: tokenNetwork.futurenet.contractId,
-      networkPassphrase: tokenNetwork.futurenet.networkPassphrase,
-      rpcUrl: 'https://rpc-futurenet.stellar.org:443',
+      contractId: tokenNetwork.testnet.contractId,
+      networkPassphrase: tokenNetwork.testnet.networkPassphrase,
+      rpcUrl: 'https://soroban-testnet.stellar.org',
       wallet: freighter,
     })
     const streamClient = new streamContract({
-      contractId: streamNetwork.futurenet.contractId,
-      networkPassphrase: streamNetwork.futurenet.networkPassphrase,
-      rpcUrl: 'https://rpc-futurenet.stellar.org:443',
+      contractId: streamNetwork.testnet.contractId,
+      networkPassphrase: streamNetwork.testnet.networkPassphrase,
+      rpcUrl: 'https://soroban-testnet.stellar.org',
       wallet: freighter,
     })
 
     Promise.all([
-      tokenClient.balance({ id: tokenNetwork.futurenet.contractId }),
+      tokenClient.balance({ id: tokenNetwork.testnet.contractId }),
       tokenClient.decimals(),
       tokenClient.name(),
       tokenClient.symbol(),
 
-      streamClient.getStreamsByUser({ caller: account?.address || 'GDZDBDNC2HX5FTQQJE64LJBEI4PO4BXQX25ASGUOCK4H3VBW6GCR45RR' }),
+      streamClient.getStreamsByUser({ caller: account?.address || 'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF' }),
     ]).then(fetched => {
       setToken({
-        balance: fetched[0],
-        decimals: fetched[1],
-        name: fetched[2].toString(),
-        symbol: fetched[3].toString(),
+        balance: fetched[0].result,
+        decimals: fetched[1].result,
+        name: fetched[2].result.toString(),
+        symbol: fetched[3].result.toString(),
       })
 
-      setUserStreams(fetched[4])
+      setUserStreams(fetched[4].result)
     }).catch(err => {
       console.error(err)
     })
